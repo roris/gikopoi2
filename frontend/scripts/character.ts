@@ -2,18 +2,19 @@ import { loadImage } from "./utils.js"
 
 export default class Character
 {
-    constructor(name)
+    public characterName: string
+    public frontSittingImage: HTMLImageElement | null = null;
+    public frontStandingImage: HTMLImageElement | null = null;
+    public frontWalking1Image: HTMLImageElement | null = null;
+    public frontWalking2Image: HTMLImageElement | null = null;
+    public backSittingImage: HTMLImageElement | null = null;
+    public backStandingImage: HTMLImageElement | null = null;
+    public backWalking1Image: HTMLImageElement | null = null;
+    public backWalking2Image: HTMLImageElement | null = null;
+
+    constructor(name: string)
     {
         this.characterName = name;
-
-        this.frontSittingImage = null;
-        this.frontStandingImage = null;
-        this.frontWalking1Image = null;
-        this.frontWalking2Image = null;
-        this.backSittingImage = null;
-        this.backStandingImage = null;
-        this.backWalking1Image = null;
-        this.backWalking2Image = null;
     }
 
     async loadImages()

@@ -11,15 +11,15 @@ const gikopoi = function ()
     let socket = null;
 
     let users = {};
-    let currentRoomId = null;
-    let currentRoom = null;
+    let currentRoomId: string = "bar";
+    let currentRoom: = null;
     const gikoCharacter = new Character("giko")
-    let myUserID = null;
+    let myUserID: number | null = null;
     let isWaitingForServerResponseOnMovement = false
     let justSpawnedToThisRoom = true
     let isLoadingRoom = false
 
-    async function connectToServer(username)
+    async function connectToServer(username: string)
     {
         const loginResponse = await postJson("/login", { userName: username })
 
@@ -184,7 +184,7 @@ const gikopoi = function ()
     }
 
     // TODO: Refactor this entire function
-    async function paint(timestamp)
+    async function paint()
     {
         const context = document.getElementById("room-canvas").getContext("2d");
         context.fillStyle = "#c0c0c0"
@@ -267,7 +267,7 @@ const gikopoi = function ()
         socket.emit("user-change-room", { targetRoomId, targetX, targetY });
     }
 
-    async function loadRoom(roomName)
+    async function loadRoom(roomName: string)
     {
         currentRoomId = roomName
         isLoadingRoom = true
@@ -354,7 +354,7 @@ const gikopoi = function ()
                 audio: true,
                 video: { aspectRatio: { ideal: 1.333333 } }
             })
-            
+
             socket.emit("user-want-to-stream", {
                 roomId: currentRoomId,
                 streamSlotId: 0,
@@ -404,7 +404,7 @@ const gikopoi = function ()
     }
 
     return {
-        login: async function (username)
+        login: async function (username: string)
         {
             await gikoCharacter.loadImages()
             await loadRoom("bar")
@@ -426,7 +426,7 @@ const vueApp = new Vue({
         currentStreamerName: "",
     },
     methods: {
-        login: function (ev)
+        login: function (ev: Event)
         {
             ev.preventDefault()
             if (this.username === "")
