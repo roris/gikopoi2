@@ -4,7 +4,7 @@ export interface Coordinates
     y: number;
 }
 
-export interface Room 
+export interface Room
 {
     scale: number;
     grid: number[];
@@ -12,7 +12,7 @@ export interface Room
     spawnPoint: {
         x: number;
         y: number;
-        direction: string;
+        direction: 'up' | 'down' | 'left' | 'right';
     };
     objects: {
         x: number;

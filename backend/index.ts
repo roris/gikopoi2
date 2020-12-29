@@ -1,18 +1,21 @@
 import express from "express"
 import { readFile } from "fs";
-import { rooms } from "./rooms";
+import { defaultRoom, rooms } from "./rooms";
 import { StreamInfo, StreamRequest } from "./types";
 import { addNewUser, getConnectedUserList, getUser, Player } from "./users";
+import { sleep } from "./utils";
 const app: express.Application = express()
 const http = require('http').Server(app);
 const io = require("socket.io")(http);
+
+const delay = 0
 
 io.on("connection", function (socket: any)
 {
     console.log("Connection attempt");
 
     let user: Player;
-    let currentRoom = rooms.bar;
+    let currentRoom = defaultRoom;
     let currentStreamSlotId: number | null = null;
 
     socket.on("user-connect", function (userId: number)
@@ -37,6 +40,8 @@ io.on("connection", function (socket: any)
     {
         try
         {
+            msg = msg.replace(/</g, "&lt;").replace(/>/g, "&gt;")
+
             console.log(user.name + ": " + msg);
             io.to(user.roomId).emit("server-msg", "<span class=\"messageAuthor\">" + user.name + "</span>", "<span class=\"messageBody\">" + msg + "</span>");
         }
@@ -46,8 +51,10 @@ io.on("connection", function (socket: any)
         }
     });
 
-    socket.on("user-move", function (direction: 'up' | 'down' | 'left' | 'right')
+    socket.on("user-move", async function (direction: 'up' | 'down' | 'left' | 'right')
     {
+        await sleep(delay)
+
         try
         {
             if (user.direction != direction)
@@ -102,53 +109,85 @@ io.on("connection", function (socket: any)
     });
     socket.on("user-stream-data", function (data: any)
     {
-        io.to(user.roomId).emit("server-stream-data", data)
+        try
+        {
+
+            io.to(user.roomId).emit("server-stream-data", data)
+        }
+        catch (e)
+        {
+            console.log(e.message + " " + e.stack);
+        }
     })
     socket.on("user-want-to-stream", function (streamRequest: StreamRequest)
     {
-        const { streamSlotId } = streamRequest
-
-        if (currentRoom.streams[streamSlotId].isActive)
-            socket.emit("server-not-ok-to-stream", "sorry, someone else is already streaming in this slot")
-        else
+        try
         {
-            currentStreamSlotId = streamSlotId
+            const { streamSlotId } = streamRequest
 
-            socket.emit("server-ok-to-stream")
+            if (currentRoom.streams[streamSlotId].isActive)
+                socket.emit("server-not-ok-to-stream", "sorry, someone else is already streaming in this slot")
+            else
+            {
+                currentStreamSlotId = streamSlotId
 
-            const streamInfo: StreamInfo = { ...streamRequest, userId: user.id }
-            socket.to(user.roomId).emit("server-stream-started", streamInfo)
+                socket.emit("server-ok-to-stream")
+
+                const streamInfo = { ...streamRequest, userId: user.id }
+                socket.to(user.roomId).emit("server-stream-started", streamInfo)
+            }
+        }
+        catch (e)
+        {
+            console.log(e.message + " " + e.stack);
         }
     })
     socket.on("user-want-to-stop-stream", function ()
     {
-        if (currentStreamSlotId === null) return // should never happen
+        try
+        {
+            if (currentStreamSlotId === null) return // should never happen
 
-        currentRoom.streams[currentStreamSlotId].isActive = false
+            currentRoom.streams[currentStreamSlotId].isActive = false
 
-        socket.to(user.roomId).emit("server-stream-stopped", {
-            streamSlotId: currentStreamSlotId,
-        })
+            socket.to(user.roomId).emit("server-stream-stopped", {
+                streamSlotId: currentStreamSlotId,
+            })
 
-        currentStreamSlotId = null
+            currentStreamSlotId = null
+        }
+        catch (e)
+        {
+            console.log(e.message + " " + e.stack);
+        }
     })
-    socket.on("user-change-room", function (data: { targetRoomId: string, targetX: number, targetY: number })
+    socket.on("user-change-room", async function (data: { targetRoomId: string, targetX: number, targetY: number })
     {
-        const { targetRoomId, targetX, targetY } = data
+        try
+        {
 
-        currentRoom = rooms[targetRoomId]
+            await sleep(delay)
 
-        io.to(user.roomId).emit("server-user-left-room", user.id);
-        socket.leave(user.roomId)
-        user.position = { x: targetX, y: targetY }
-        user.roomId = targetRoomId
-        socket.join(targetRoomId)
+            const { targetRoomId, targetX, targetY } = data
 
-        socket.emit("server-update-current-room-users", {
-            users: getConnectedUserList(targetRoomId)
-        })
+            currentRoom = rooms[targetRoomId]
 
-        io.to(targetRoomId).emit("server-user-joined-room", user);
+            io.to(user.roomId).emit("server-user-left-room", user.id);
+            socket.leave(user.roomId)
+            user.position = { x: targetX, y: targetY }
+            user.roomId = targetRoomId
+            socket.join(targetRoomId)
+
+            socket.emit("server-update-current-room-users", {
+                users: getConnectedUserList(targetRoomId)
+            })
+
+            io.to(targetRoomId).emit("server-user-joined-room", user);
+        }
+        catch (e)
+        {
+            console.log(e.message + " " + e.stack);
+        }
     })
 });
 
