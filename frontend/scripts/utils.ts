@@ -1,3 +1,5 @@
+import { Room } from "../../backend/types";
+
 export const BLOCK_WIDTH = 160
 export const BLOCK_HEIGHT = 80
 
@@ -25,7 +27,7 @@ export function loadImage(url: string): Promise<HTMLImageElement>
 }
 
 // returns "left" and "bottom" positions
-export function calculateRealCoordinates(room, x: number, y: number)
+export function calculateRealCoordinates(room: Room, x: number, y: number)
 {
     let realX = room.originCoordinates.x
         + x * BLOCK_WIDTH / 2
@@ -42,8 +44,6 @@ export function calculateRealCoordinates(room, x: number, y: number)
 
     return { x: realX, y: realY }
 }
-
-export const sleep = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds));
 
 export function postJson(url: string, data: any)
 {

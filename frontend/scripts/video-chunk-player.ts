@@ -1,27 +1,30 @@
 export default class VideoChunkPlayer
 {
-    constructor(container)
+    container: HTMLElement
+    videoElement1 = document.createElement("video")
+    videoElement2 = document.createElement("video")
+    whichVideoElement: number
+    
+    constructor(container: HTMLElement)
     {
         this.container = container
-        this.videoElement1 = document.createElement("video")
-        this.videoElement2 = document.createElement("video")
 
         for (const videoElement of [this.videoElement1, this.videoElement2])
         {
-            videoElement.style.zIndex = -1
+            videoElement.style.zIndex = "-1"
             videoElement.autoplay = true
             container.appendChild(videoElement)
         }
 
         this.videoElement1.addEventListener("loadeddata", () => 
         {
-            this.videoElement1.style.zIndex = 1000;
-            this.videoElement2.style.zIndex = -1;
+            this.videoElement1.style.zIndex = "1000";
+            this.videoElement2.style.zIndex = "-1"
         })
         this.videoElement2.addEventListener("loadeddata", () => 
         {
-            this.videoElement2.style.zIndex = 1000;
-            this.videoElement1.style.zIndex = -1;
+            this.videoElement2.style.zIndex = "1000";
+            this.videoElement1.style.zIndex = "-1"
         })
 
         this.whichVideoElement = 1

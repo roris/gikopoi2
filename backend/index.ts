@@ -1,9 +1,9 @@
 import express from "express"
 import { readFile } from "fs";
+import { sleep } from "../utils";
 import { defaultRoom, rooms } from "./rooms";
-import { StreamInfo, StreamRequest } from "./types";
+import { StreamRequest } from "./types";
 import { addNewUser, getConnectedUserList, getUser, Player } from "./users";
-import { sleep } from "./utils";
 const app: express.Application = express()
 const http = require('http').Server(app);
 const io = require("socket.io")(http);
@@ -192,6 +192,9 @@ io.on("connection", function (socket: any)
 });
 
 app.use(express.static('frontend',
+    { setHeaders: (res) => res.set("Cache-Control", "no-cache") }
+));
+app.use(express.static('build/frontend',
     { setHeaders: (res) => res.set("Cache-Control", "no-cache") }
 ));
 

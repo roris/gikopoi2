@@ -3,7 +3,7 @@ localStorage.clear()
 
 import Character from "./character.js";
 import User from "./user.js";
-import { loadImage, calculateRealCoordinates, scale, sleep, postJson } from "./utils.js";
+import { loadImage, calculateRealCoordinates, scale, postJson } from "./utils.js";
 import VideoChunkPlayer from "./video-chunk-player.js";
 
 const io = require("socket.io")
@@ -12,6 +12,10 @@ import Vue from "vue"
 import { Room, StreamInfo, StreamRequest } from "../../backend/types.js";
 import { Player } from "../../backend/users.js";
 
+// @ts-ignore for some reason RecordRTCPromisesHandler isn't include in @types/recordrtc
+import RecordRTC, { RecordRTCPromisesHandler } from 'recordrtc';
+import { sleep } from "../../utils.js";
+
 const gikopoi = function ()
 {
     let socket: any = null;
@@ -19,6 +23,7 @@ const gikopoi = function ()
     let users: { [key: number]: User } = {};
     let currentRoomId: string = "bar";
     let currentRoom: Room;
+    let currentRoomBackgroundImage: HTMLImageElement
     const gikoCharacter = new Character("giko")
     let myUserID: number;
     let isWaitingForServerResponseOnMovement = false
@@ -109,7 +114,7 @@ const gikopoi = function ()
                 delete users[userId];
         });
 
-        const receivedVideoPlayer = new VideoChunkPlayer(document.getElementById("received-video-1"))
+        const receivedVideoPlayer = new VideoChunkPlayer(document.getElementById("received-video-1")!)
 
         socket.on("server-stream-data", function (data: ArrayBuffer)
         {
@@ -168,8 +173,8 @@ const gikopoi = function ()
     function getContext(): CanvasRenderingContext2D 
     {
         const element = document.getElementById("room-canvas") as HTMLCanvasElement
-        
-        return element.getContext("2d")?
+
+        return element.getContext("2d")!
     }
 
     function drawImage(image: HTMLImageElement, x: number, y: number, roomScale?: number)
@@ -219,24 +224,30 @@ const gikopoi = function ()
         context.fillStyle = "#c0c0c0"
         context.fillRect(0, 0, 721, 511)
         // draw background
-        drawImage(currentRoom.backgroundImage, 0, 511, currentRoom.scale)
+        drawImage(currentRoomBackgroundImage, 0, 511, currentRoom.scale)
 
-        const allObjects = currentRoom.objects.map(o => ({
+        let allObjects: {
+            o: any,
+            type: string,
+            priority: number
+        }[] = currentRoom.objects.map(o => ({
             o,
             type: "room-object",
             priority: o.x + 1 + (currentRoom.grid[1] - o.y)
         }))
-            .concat(Object.values(users).map(o => ({
-                o,
-                type: "user",
-                priority: o.logicalPositionX + 1 + (currentRoom.grid[1] - o.logicalPositionY)
-            })))
-            .sort((a, b) =>
-            {
-                if (a.priority < b.priority) return -1
-                if (a.priority > b.priority) return 1
-                return 0
-            })
+
+        allObjects = allObjects.concat(Object.values(users).map(o => ({
+            o,
+            type: "user",
+            priority: o.logicalPositionX + 1 + (currentRoom.grid[1] - o.logicalPositionY)
+        })))
+
+        allObjects = allObjects.sort((a, b) =>
+        {
+            if (a.priority < b.priority) return -1
+            if (a.priority > b.priority) return 1
+            return 0
+        })
 
         for (const o of allObjects)
         {
@@ -305,7 +316,7 @@ const gikopoi = function ()
         currentRoom = await (await fetch("/rooms/" + roomName)).json()
         console.log("currentRoom updated")
 
-        currentRoom.backgroundImage = await loadImage("rooms/" + roomName + "/background.png")
+        currentRoomBackgroundImage = await loadImage("rooms/" + roomName + "/background.png")
         for (const o of currentRoom.objects)
         {
             o.image = await loadImage("rooms/" + roomName + "/" + o.url)
@@ -317,7 +328,7 @@ const gikopoi = function ()
         // Force update of user coordinates using the current room's logics (origin coordinates, etc)
         forcePhysicalPositionRefresh()
 
-        document.getElementById("room-canvas").focus()
+        document.getElementById("room-canvas")!.focus()
         justSpawnedToThisRoom = true
         isLoadingRoom = false
         requestedRoomChange = false
@@ -331,7 +342,7 @@ const gikopoi = function ()
             u.moveImmediatelyToPosition(currentRoom, u.logicalPositionX, u.logicalPositionY, u.direction)
     }
 
-    function sendNewPositionToServer(direction)
+    function sendNewPositionToServer(direction: 'up' | 'down' | 'left' | 'right')
     {
         if (isLoadingRoom || isWaitingForServerResponseOnMovement || users[myUserID].isWalking)
             return
@@ -342,7 +353,7 @@ const gikopoi = function ()
 
     function sendMessageToServer()
     {
-        const inputTextbox = document.getElementById("textBox")
+        const inputTextbox = document.getElementById("textBox") as HTMLInputElement
 
         if (inputTextbox.value == "") return;
         socket.emit("user-msg", inputTextbox.value);
@@ -351,7 +362,7 @@ const gikopoi = function ()
 
     function registerKeybindings()
     {
-        function onKeyDown(event)
+        function onKeyDown(event: KeyboardEvent)
         {
             switch (event.key)
             {
@@ -362,21 +373,17 @@ const gikopoi = function ()
             }
         }
 
-        const canvas = document.getElementById("room-canvas")
+        document.getElementById("room-canvas")!.addEventListener("keydown", onKeyDown);
 
-        canvas.addEventListener("keydown", onKeyDown);
-
-        const inputTextbox = document.getElementById("textBox")
-
-        inputTextbox.addEventListener("keydown", (event) =>
+        document.getElementById("textBox")!.addEventListener("keydown", (event) =>
         {
             if (event.key != "Enter") return
             sendMessageToServer()
         })
 
-        document.getElementById("send-button").addEventListener("click", () => sendMessageToServer())
-        document.getElementById("start-streaming-button").addEventListener("click", () => wantToStartStreaming())
-        document.getElementById("stop-streaming-button").addEventListener("click", () => stopStreaming())
+        document.getElementById("send-button")!.addEventListener("click", () => sendMessageToServer())
+        document.getElementById("start-streaming-button")!.addEventListener("click", () => wantToStartStreaming())
+        document.getElementById("stop-streaming-button")!.addEventListener("click", () => stopStreaming())
 
         window.addEventListener("focus", () =>
         {
@@ -386,7 +393,7 @@ const gikopoi = function ()
 
     // WebRTC
 
-    let webcamStream = null;
+    let webcamStream: MediaStream | null;
 
     async function wantToStartStreaming()
     {
@@ -413,10 +420,11 @@ const gikopoi = function ()
 
     async function startStreaming()
     {
-        document.getElementById("local-video").srcObject = webcamStream;
-        document.getElementById("local-video").style.display = "block";
+        const element = document.getElementById("local-video") as HTMLMediaElement
+        element.srcObject = webcamStream;
+        element.style.display = "block";
 
-        const recorder = new RecordRTCPromisesHandler(webcamStream, { type: "video" })
+        const recorder = new RecordRTC(webcamStream!, { type: "video" })
         while (webcamStream)
         {
             recorder.startRecording()
@@ -434,17 +442,19 @@ const gikopoi = function ()
     {
         vueApp.iAmStreaming = false
         vueApp.someoneIsStreaming = false
-        for (const track of webcamStream.getTracks())
+        for (const track of webcamStream!.getTracks())
             track.stop()
-        document.getElementById("local-video").srcObject = webcamStream = null;
-        document.getElementById("local-video").style.display = "none"
+
+        const element = document.getElementById("local-video") as HTMLMediaElement
+        element.srcObject = webcamStream = null;
+        element.style.display = "none"
         socket.emit("user-want-to-stop-stream")
     }
 
-    async function logout()
-    {
-        await postJson("/logout", { userID: myUserID })
-    }
+    // async function logout()
+    // {
+    //     await postJson("/logout", { userID: myUserID })
+    // }
 
     return {
         login: async function (username: string)

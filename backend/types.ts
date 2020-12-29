@@ -18,6 +18,9 @@ export interface Room
         x: number;
         y: number;
         url: string;
+        image?: HTMLImageElement // TODO Refactor, this stuff is needed only by the frontend
+        physicalPositionX?: number // TODO Refactor, this stuff is needed only by the frontend
+        physicalPositionY?: number // TODO Refactor, this stuff is needed only by the frontend
     }[];
     sit: number[][];
     blocked: Coordinates[];
