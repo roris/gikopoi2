@@ -2,7 +2,7 @@
   "name": "gikopoi2",
   "version": "0.0.1",
   "description": "gikopoi2",
-  "main": "build/index.js",
+  "main": "build/backend/index.js",
   "dependencies": {
     "cross-env": "^7.0.3",
     "express": "^4.16.2",
@@ -10,7 +10,7 @@
   },
   "license": "Beerware",
   "scripts": {
-    "start": "node build/index.js",
+    "start": "node build/backend/index.js",
     "dev": "ts-node-dev --respawn index.ts",
     "dev-debug": "cross-env DEBUG=* ts-node-dev --respawn index.ts",
     "build": "npx tsc"

@@ -151,7 +151,7 @@ io.on("connection", function (socket: any)
     })
 });
 
-app.use(express.static('static',
+app.use(express.static('frontend',
     { setHeaders: (res) => res.set("Cache-Control", "no-cache") }
 ));
 
