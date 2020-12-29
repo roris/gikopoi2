@@ -27,7 +27,7 @@ export default class VideoChunkPlayer
         this.whichVideoElement = 1
     }
 
-    playChunk(arrayBuffer)
+    playChunk(arrayBuffer: ArrayBuffer)
     {
         this.videoElement1.style.display = "block"
         this.videoElement2.style.display = "block"

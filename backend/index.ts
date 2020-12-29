@@ -1,6 +1,7 @@
 import express from "express"
 import { readFile } from "fs";
 import { rooms } from "./rooms";
+import { StreamInfo, StreamRequest } from "./types";
 import { addNewUser, getConnectedUserList, getUser, Player } from "./users";
 const app: express.Application = express()
 const http = require('http').Server(app);
@@ -103,7 +104,7 @@ io.on("connection", function (socket: any)
     {
         io.to(user.roomId).emit("server-stream-data", data)
     })
-    socket.on("user-want-to-stream", function (streamRequest: { streamSlotId: number, withVideo: boolean, withSound: boolean })
+    socket.on("user-want-to-stream", function (streamRequest: StreamRequest)
     {
         const { streamSlotId } = streamRequest
 
@@ -115,7 +116,7 @@ io.on("connection", function (socket: any)
 
             socket.emit("server-ok-to-stream")
 
-            const streamInfo = { ...streamRequest, userId: user.id }
+            const streamInfo: StreamInfo = { ...streamRequest, userId: user.id }
             socket.to(user.roomId).emit("server-stream-started", streamInfo)
         }
     })

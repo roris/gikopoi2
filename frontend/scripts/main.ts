@@ -6,15 +6,21 @@ import User from "./user.js";
 import { loadImage, calculateRealCoordinates, scale, sleep, postJson } from "./utils.js";
 import VideoChunkPlayer from "./video-chunk-player.js";
 
+const io = require("socket.io")
+
+import Vue from "vue"
+import { Room, StreamInfo, StreamRequest } from "../../backend/types.js";
+import { Player } from "../../backend/users.js";
+
 const gikopoi = function ()
 {
-    let socket = null;
+    let socket: any = null;
 
-    let users = {};
+    let users: { [key: number]: User } = {};
     let currentRoomId: string = "bar";
-    let currentRoom: = null;
+    let currentRoom: Room;
     const gikoCharacter = new Character("giko")
-    let myUserID: number | null = null;
+    let myUserID: number;
     let isWaitingForServerResponseOnMovement = false
     let justSpawnedToThisRoom = true
     let isLoadingRoom = false
@@ -32,25 +38,32 @@ const gikopoi = function ()
             socket.emit("user-connect", myUserID);
         });
 
-        socket.on("server-update-current-room-users", async function (dto)
+        socket.on("server-update-current-room-users", async function (dto: {
+            users: {
+                [id: number]: Player;
+            }
+        })
         {
             users = {}
             for (const u in dto.users)
                 addUser(dto.users[u]);
         });
 
-        socket.on("server-msg", function (userName, msg)
+        socket.on("server-msg", function (userName: string, msg: string)
         {
-            const chatLog = document.getElementById("chatLog");
             console.log(userName)
             if (userName != "SYSTEM")
-                document.getElementById("message-sound").play()
+            {
+                const msgSound = document.getElementById("message-sound") as HTMLMediaElement
+                msgSound.play()
+            }
 
+            const chatLog = document.getElementById("chatLog")!;
             chatLog.innerHTML += userName + ": " + msg + "<br/>";
             chatLog.scrollTop = chatLog.scrollHeight;
         });
 
-        socket.on("server-move", function (userId, x, y, direction, isInstant)
+        socket.on("server-move", function (userId: number, x: number, y: number, direction: 'up' | 'down' | 'left' | 'right', isInstant: boolean)
         {
             const user = users[userId];
 
@@ -72,9 +85,10 @@ const gikopoi = function ()
 
         socket.on("server-reject-movement", () => isWaitingForServerResponseOnMovement = false)
 
-        socket.on("server-user-joined-room", async function (user)
+        socket.on("server-user-joined-room", async function (user: Player)
         {
-            document.getElementById("login-sound").play()
+            const loginSound = document.getElementById("login-sound") as HTMLMediaElement
+            loginSound.play()
 
             if (user.id == myUserID)
             {
@@ -87,7 +101,7 @@ const gikopoi = function ()
             }
         });
 
-        socket.on("server-user-left-room", function (userId)
+        socket.on("server-user-left-room", function (userId: number)
         {
             if (userId != myUserID)
                 delete users[userId];
@@ -95,11 +109,11 @@ const gikopoi = function ()
 
         const receivedVideoPlayer = new VideoChunkPlayer(document.getElementById("received-video-1"))
 
-        socket.on("server-stream-data", function (data)
+        socket.on("server-stream-data", function (data: ArrayBuffer)
         {
             receivedVideoPlayer.playChunk(data)
         })
-        socket.on("server-not-ok-to-stream", (reason) =>
+        socket.on("server-not-ok-to-stream", (reason: string) =>
         {
             vueApp.wantToStream = false
             alert(reason)
@@ -111,14 +125,13 @@ const gikopoi = function ()
             vueApp.someoneIsStreaming = true
             startStreaming()
         })
-        socket.on("server-stream-started", (streamInfo) =>
+        socket.on("server-stream-started", (streamInfo: StreamInfo) =>
         {
             vueApp.someoneIsStreaming = true
             vueApp.currentStreamerName = users[streamInfo.userId].name
         })
-        socket.on("server-stream-stopped", (streamInfo) =>
+        socket.on("server-stream-stopped", (streamInfo: { streamSlotId: number }) =>
         {
-            const { streamSlotId } = streamInfo
             vueApp.someoneIsStreaming = false
             receivedVideoPlayer.stop() // kinda useless, now that i'm using the someoneIsStreaming variable to drive the visibility of the video player
         })
@@ -142,21 +155,28 @@ const gikopoi = function ()
         setInterval(ping, 1000 * 10)
     }
 
-    function addUser(userDTO)
+    function addUser(userDTO: Player)
     {
         const newUser = new User(gikoCharacter, userDTO.name);
         newUser.moveImmediatelyToPosition(currentRoom, userDTO.position.x, userDTO.position.y, userDTO.direction);
         users[userDTO.id] = newUser;
     }
 
-    function drawImage(image, x, y, roomScale)
+    function getContext(): CanvasRenderingContext2D 
+    {
+        const element = document.getElementById("room-canvas") as HTMLCanvasElement
+        
+        return element.getContext("2d")?
+    }
+
+    function drawImage(image: HTMLImageElement, x: number, y: number, roomScale?: number)
     {
         if (!image) return // image might be null when rendering a room that hasn't been fully loaded
 
         if (!roomScale)
             roomScale = 1
 
-        const context = document.getElementById("room-canvas").getContext("2d");
+        const context = getContext();
         context.drawImage(image,
             x,
             y - image.height * scale * roomScale,
@@ -164,17 +184,17 @@ const gikopoi = function ()
             image.height * scale * roomScale)
     }
 
-    function drawHorizontallyFlippedImage(image, x, y)
+    function drawHorizontallyFlippedImage(image: HTMLImageElement, x: number, y: number)
     {
-        const context = document.getElementById("room-canvas").getContext("2d");
+        const context = getContext();
         context.scale(-1, 1)
         drawImage(image, - x - image.width / 2, y)
         context.setTransform(1, 0, 0, 1, 0, 0); // clear transformation
     }
 
-    function drawCenteredText(text, x, y)
+    function drawCenteredText(text: string, x: number, y: number)
     {
-        const context = document.getElementById("room-canvas").getContext("2d");
+        const context = getContext();
         // const width = context.measureText(text).width
         context.font = "bold 13px Arial, Helvetica, sans-serif"
         context.textBaseline = "bottom"
@@ -186,7 +206,7 @@ const gikopoi = function ()
     // TODO: Refactor this entire function
     async function paint()
     {
-        const context = document.getElementById("room-canvas").getContext("2d");
+        const context = getContext();
         context.fillStyle = "#c0c0c0"
         context.fillRect(0, 0, 721, 511)
         // draw background
@@ -355,7 +375,7 @@ const gikopoi = function ()
                 video: { aspectRatio: { ideal: 1.333333 } }
             })
 
-            socket.emit("user-want-to-stream", {
+            socket.emit("user-want-to-stream", <StreamRequest>{
                 roomId: currentRoomId,
                 streamSlotId: 0,
                 withVideo: true,

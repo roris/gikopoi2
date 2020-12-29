@@ -34,3 +34,14 @@ export interface Room
         withVideo: boolean | null
     }[];
 }
+
+export interface StreamRequest
+{
+    streamSlotId: number,
+    withVideo: boolean,
+    withSound: boolean
+}
+export interface StreamInfo extends StreamRequest
+{
+    userId: number
+}

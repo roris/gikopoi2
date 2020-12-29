@@ -6,7 +6,8 @@
   "dependencies": {
     "cross-env": "^7.0.3",
     "express": "^4.16.2",
-    "socket.io": "^3.0.4"
+    "socket.io": "^3.0.4",
+    "vue": "^2.6.12"
   },
   "license": "Beerware",
   "scripts": {

@@ -1,24 +1,29 @@
+import { Room } from "../../backend/types.js";
+import Character from "./character.js";
 import { calculateRealCoordinates, BLOCK_HEIGHT, BLOCK_WIDTH } from "./utils.js";
 
 const STEP_LENGTH = 8;
 
 export default class User
 {
-    constructor(character, name)
+    public name: string
+    public character: Character
+
+    public logicalPositionX = 0;
+    public logicalPositionY = 0;
+    public currentPhysicalPositionX = 0;
+    public currentPhysicalPositionY = 0;
+    public isWalking = false;
+    public direction: 'up' | 'down' | 'left' | 'right'  = "up";
+    public framesUntilNextStep = STEP_LENGTH
+
+    constructor(character: Character, name: string)
     {
         this.name = name;
         this.character = character;
-
-        this.logicalPositionX = 0;
-        this.logicalPositionY = 0;
-        this.currentPhysicalPositionX = 0;
-        this.currentPhysicalPositionY = 0;
-        this.isWalking = false;
-        this.direction = "up";
-        this.framesUntilNextStep = STEP_LENGTH
     }
 
-    moveImmediatelyToPosition(room, logicalPositionX, logicalPositionY, direction)
+    moveImmediatelyToPosition(room: Room, logicalPositionX: number, logicalPositionY: number, direction: 'up' | 'down' | 'left' | 'right')
     {
         console.log("moveImmediatelyToPosition for user", this.name)
         this.logicalPositionX = logicalPositionX;
@@ -31,7 +36,7 @@ export default class User
         this.direction = direction;
     }
 
-    moveToPosition(logicalPositionX, logicalPositionY, direction)
+    moveToPosition(logicalPositionX: number, logicalPositionY: number, direction: 'up' | 'down' | 'left' | 'right')
     {
         if (this.logicalPositionX != logicalPositionX || this.logicalPositionY != logicalPositionY)
             this.isWalking = true;
@@ -42,7 +47,7 @@ export default class User
     }
 
     // TODO really, find a better name for this function
-    spendTime(room)
+    spendTime(room: Room)
     {
         const walkingSpeedX = BLOCK_WIDTH / 80
         const walkingSpeedY = BLOCK_HEIGHT / 80
@@ -69,7 +74,7 @@ export default class User
             this.framesUntilNextStep = STEP_LENGTH
     }
 
-    getCurrentImage(room)
+    getCurrentImage(room: Room)
     {
         if (this.isWalking)
         {
