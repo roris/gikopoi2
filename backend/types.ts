@@ -6,9 +6,11 @@ export interface Coordinates
 
 export interface Room
 {
+    id: string;
     scale: number;
     grid: number[];
     originCoordinates: Coordinates;
+    backgroundImageUrl: string;
     spawnPoint: {
         x: number;
         y: number;
@@ -36,6 +38,7 @@ export interface Room
         withSound: boolean | null,
         withVideo: boolean | null
     }[];
+    // users: Player[]
 }
 
 export interface StreamRequest

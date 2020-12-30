@@ -21,9 +21,9 @@ const gikopoi = function ()
     let socket: any = null;
 
     let users: { [key: number]: User } = {};
-    let currentRoomId: string = "bar";
     let currentRoom: Room;
     let currentRoomBackgroundImage: HTMLImageElement
+
     const gikoCharacter = new Character("giko")
     let myUserID: number;
     let isWaitingForServerResponseOnMovement = false
@@ -45,15 +45,37 @@ const gikopoi = function ()
             socket.emit("user-connect", myUserID);
         });
 
-        socket.on("server-update-current-room-users", async function (dto: {
-            users: {
-                [id: number]: Player;
-            }
-        })
+        socket.on("server-update-current-room-state", async function (roomDto: Room, usersDto: Player[])
         {
+            console.log("roomDto", roomDto)
+            isLoadingRoom = true
+
+            currentRoom = roomDto
             users = {}
-            for (const u in dto.users)
-                addUser(dto.users[u]);
+
+            console.log(usersDto)
+            for (const u of usersDto)
+                addUser(u);
+
+            currentRoomBackgroundImage = await loadImage(currentRoom.backgroundImageUrl)
+            for (const o of currentRoom.objects)
+            {
+                o.image = await loadImage("rooms/" + currentRoom.id + "/" + o.url)
+                const { x, y } = calculateRealCoordinates(currentRoom, o.x, o.y);
+                o.physicalPositionX = x
+                o.physicalPositionY = y
+            }
+
+            // Force update of user coordinates using the current room's logics (origin coordinates, etc)
+            forcePhysicalPositionRefresh()
+
+            document.getElementById("room-canvas")!.focus()
+            justSpawnedToThisRoom = true
+            isLoadingRoom = false
+            requestedRoomChange = false
+
+            vueApp.roomAllowsStreaming = currentRoom.streams.length > 0
+
         });
 
         socket.on("server-msg", function (userName: string, msg: string)
@@ -96,16 +118,7 @@ const gikopoi = function ()
         {
             const loginSound = document.getElementById("login-sound") as HTMLMediaElement
             loginSound.play()
-
-            if (user.id == myUserID)
-            {
-                await loadRoom(user.roomId)
-                users[myUserID].moveImmediatelyToPosition(currentRoom, user.position.x, user.position.y, user.direction)
-            }
-            else
-            {
-                addUser(user);
-            }
+            addUser(user);
         });
 
         socket.on("server-user-left-room", function (userId: number)
@@ -223,60 +236,64 @@ const gikopoi = function ()
         const context = getContext();
         context.fillStyle = "#c0c0c0"
         context.fillRect(0, 0, 721, 511)
-        // draw background
-        drawImage(currentRoomBackgroundImage, 0, 511, currentRoom.scale)
 
-        let allObjects: {
-            o: any,
-            type: string,
-            priority: number
-        }[] = currentRoom.objects.map(o => ({
-            o,
-            type: "room-object",
-            priority: o.x + 1 + (currentRoom.grid[1] - o.y)
-        }))
-
-        allObjects = allObjects.concat(Object.values(users).map(o => ({
-            o,
-            type: "user",
-            priority: o.logicalPositionX + 1 + (currentRoom.grid[1] - o.logicalPositionY)
-        })))
-
-        allObjects = allObjects.sort((a, b) =>
+        if (currentRoom)
         {
-            if (a.priority < b.priority) return -1
-            if (a.priority > b.priority) return 1
-            return 0
-        })
+            // draw background
+            drawImage(currentRoomBackgroundImage, 0, 511, currentRoom.scale)
 
-        for (const o of allObjects)
-        {
-            if (o.type == "room-object")
+            let allObjects: {
+                o: any,
+                type: string,
+                priority: number
+            }[] = currentRoom.objects.map(o => ({
+                o,
+                type: "room-object",
+                priority: o.x + 1 + (currentRoom.grid[1] - o.y)
+            }))
+
+            allObjects = allObjects.concat(Object.values(users).map(o => ({
+                o,
+                type: "user",
+                priority: o.logicalPositionX + 1 + (currentRoom.grid[1] - o.logicalPositionY)
+            })))
+
+            allObjects = allObjects.sort((a, b) =>
             {
-                drawImage(o.o.image, o.o.physicalPositionX, o.o.physicalPositionY, currentRoom.scale)
-            }
-            else // o.type == "user"
+                if (a.priority < b.priority) return -1
+                if (a.priority > b.priority) return 1
+                return 0
+            })
+
+            for (const o of allObjects)
             {
-                if (!isLoadingRoom)
+                if (o.type == "room-object")
                 {
-                    // draw users only when the room is fully loaded, so that the "physical position" calculations
-                    // are done with the correct room's data.
-                    drawCenteredText(o.o.name, o.o.currentPhysicalPositionX + 40, o.o.currentPhysicalPositionY - 95)
-
-                    switch (o.o.direction)
-                    {
-                        case "up":
-                        case "right":
-                            drawHorizontallyFlippedImage(o.o.getCurrentImage(currentRoom), o.o.currentPhysicalPositionX, o.o.currentPhysicalPositionY)
-                            break;
-                        case "down":
-                        case "left":
-                            drawImage(o.o.getCurrentImage(currentRoom), o.o.currentPhysicalPositionX, o.o.currentPhysicalPositionY)
-                            break;
-                    }
+                    drawImage(o.o.image, o.o.physicalPositionX, o.o.physicalPositionY, currentRoom.scale)
                 }
+                else // o.type == "user"
+                {
+                    if (!isLoadingRoom)
+                    {
+                        // draw users only when the room is fully loaded, so that the "physical position" calculations
+                        // are done with the correct room's data.
+                        drawCenteredText(o.o.name.replace(/&gt;/g, ">").replace(/&lt;/g, "<"), o.o.currentPhysicalPositionX + 40, o.o.currentPhysicalPositionY - 95)
 
-                o.o.spendTime(currentRoom)
+                        switch (o.o.direction)
+                        {
+                            case "up":
+                            case "right":
+                                drawHorizontallyFlippedImage(o.o.getCurrentImage(currentRoom), o.o.currentPhysicalPositionX, o.o.currentPhysicalPositionY)
+                                break;
+                            case "down":
+                            case "left":
+                                drawImage(o.o.getCurrentImage(currentRoom), o.o.currentPhysicalPositionX, o.o.currentPhysicalPositionY)
+                                break;
+                        }
+                    }
+
+                    o.o.spendTime(currentRoom)
+                }
             }
         }
         changeRoomIfSteppingOnDoor()
@@ -307,33 +324,6 @@ const gikopoi = function ()
 
         requestedRoomChange = true
         socket.emit("user-change-room", { targetRoomId, targetX, targetY });
-    }
-
-    async function loadRoom(roomName: string)
-    {
-        currentRoomId = roomName
-        isLoadingRoom = true
-        currentRoom = await (await fetch("/rooms/" + roomName)).json()
-        console.log("currentRoom updated")
-
-        currentRoomBackgroundImage = await loadImage("rooms/" + roomName + "/background.png")
-        for (const o of currentRoom.objects)
-        {
-            o.image = await loadImage("rooms/" + roomName + "/" + o.url)
-            const { x, y } = calculateRealCoordinates(currentRoom, o.x, o.y);
-            o.physicalPositionX = x
-            o.physicalPositionY = y
-        }
-
-        // Force update of user coordinates using the current room's logics (origin coordinates, etc)
-        forcePhysicalPositionRefresh()
-
-        document.getElementById("room-canvas")!.focus()
-        justSpawnedToThisRoom = true
-        isLoadingRoom = false
-        requestedRoomChange = false
-
-        vueApp.roomAllowsStreaming = currentRoom.streams.length > 0
     }
 
     function forcePhysicalPositionRefresh()
@@ -406,7 +396,6 @@ const gikopoi = function ()
             })
 
             socket.emit("user-want-to-stream", <StreamRequest>{
-                roomId: currentRoomId,
                 streamSlotId: 0,
                 withVideo: true,
                 withSound: true,
@@ -460,7 +449,7 @@ const gikopoi = function ()
         login: async function (username: string)
         {
             await gikoCharacter.loadImages()
-            await loadRoom("admin_st")
+            // await loadRoom("admin_st")
             registerKeybindings()
             await connectToServer(username)
             paint()
@@ -486,12 +475,9 @@ const vueApp = new Vue({
         {
             ev.preventDefault()
             if (this.username === "")
-                alert("Please write a username")
-            else
-            {
-                this.loggedIn = true
-                gikopoi.login(this.username).catch(console.error)
-            }
+                this.username = "名無しさん"
+            this.loggedIn = true
+            gikopoi.login(this.username).catch(console.error)
         }
     }
 })

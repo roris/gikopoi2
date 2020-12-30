@@ -3,7 +3,7 @@ import { readFile } from "fs";
 import { sleep } from "../utils";
 import { defaultRoom, rooms } from "./rooms";
 import { StreamRequest } from "./types";
-import { addNewUser, getConnectedUserList, getUser, Player } from "./users";
+import { addNewUser, getConnectedUserList, getUser, Player, removeUser } from "./users";
 const app: express.Application = express()
 const http = require('http').Server(app);
 const io = require("socket.io")(http);
@@ -18,6 +18,8 @@ io.on("connection", function (socket: any)
     let currentRoom = defaultRoom;
     let currentStreamSlotId: number | null = null;
 
+    socket.join(currentRoom.id)
+
     socket.on("user-connect", function (userId: number)
     {
         try
@@ -26,10 +28,8 @@ io.on("connection", function (socket: any)
 
             console.log("userId: " + userId + " name: " + user.name);
 
-            socket.emit("server-update-current-room-users", {
-                users: getConnectedUserList(user.roomId)
-            })
-            socket.join(user.roomId)
+            socket.emit("server-update-current-room-state", currentRoom, getConnectedUserList(user.roomId))
+
         }
         catch (e)
         {
@@ -41,9 +41,10 @@ io.on("connection", function (socket: any)
         try
         {
             msg = msg.replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            const userName = user.name
 
-            console.log(user.name + ": " + msg);
-            io.to(user.roomId).emit("server-msg", "<span class=\"messageAuthor\">" + user.name + "</span>", "<span class=\"messageBody\">" + msg + "</span>");
+            console.log(userName + ": " + msg);
+            io.to(user.roomId).emit("server-msg", "<span class=\"messageAuthor\">" + userName + "</span>", "<span class=\"messageBody\">" + msg + "</span>");
         }
         catch (e)
         {
@@ -165,7 +166,6 @@ io.on("connection", function (socket: any)
     {
         try
         {
-
             await sleep(delay)
 
             const { targetRoomId, targetX, targetY } = data
@@ -174,15 +174,13 @@ io.on("connection", function (socket: any)
 
             io.to(user.roomId).emit("server-user-left-room", user.id);
             socket.leave(user.roomId)
+
             user.position = { x: targetX, y: targetY }
             user.roomId = targetRoomId
+
+            socket.emit("server-update-current-room-state", currentRoom, getConnectedUserList(targetRoomId))
             socket.join(targetRoomId)
-
-            socket.emit("server-update-current-room-users", {
-                users: getConnectedUserList(targetRoomId)
-            })
-
-            io.to(targetRoomId).emit("server-user-joined-room", user);
+            socket.to(targetRoomId).emit("server-user-joined-room", user);
         }
         catch (e)
         {
@@ -237,6 +235,7 @@ app.post("/login", (req, res) =>
     const { userName } = req.body
 
     console.log(userName, "logging in")
+
     if (!userName)
     {
         res.statusCode = 500
@@ -244,24 +243,36 @@ app.post("/login", (req, res) =>
     }
     else
     {
-        const user = addNewUser(userName);
+        const sanitizedUserName = userName.replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        const user = addNewUser(sanitizedUserName);
         res.json(user.id)
 
-        io.emit("server-msg", "SYSTEM", userName + " connected");
-        io.emit("server-user-joined-room", user);
+        io.to(user.roomId).emit("server-msg", "SYSTEM", sanitizedUserName + " connected");
+        io.to(user.roomId).emit("server-user-joined-room", user);
     }
 })
 
 function disconnectUser(user: Player)
 {
-    console.log("Disconnecting user ", user.id, user.name)
-    user.connected = false;
-    io.emit("server-msg", "SYSTEM", user.name + " disconnected");
-    io.emit("server-user-left-room", user.id);
+    try
+    {
+        console.log("Disconnecting user ", user.id, user.name)
+        removeUser(user)
+        // for (const r of Object.values(rooms))
+        //     r.users = r.users.filter(u => u != user)
+
+        io.to(user.roomId).emit("server-msg", "SYSTEM", user.name + " disconnected");
+        io.to(user.roomId).emit("server-user-left-room", user.id);
+    }
+    catch (e)
+    {
+        console.log(e.message + " " + e.stack);
+    }
 }
 
 app.post("/logout", (req, res) =>
 {
+    // this has never been tested
     const { userID } = req.body
     if (!userID)
     {
@@ -273,18 +284,21 @@ app.post("/logout", (req, res) =>
         const user = getUser(userID);
         if (!user) return;
 
+        removeUser(user)
+
         res.end()
     }
 })
 
+
 // Disconnect users that have failed to ping in the last 30 seconds
+
 setInterval(() =>
 {
-    const allUsers = getConnectedUserList(null)
-    for (const user of Object.values(allUsers))
-        if (Date.now() - user.lastPing > 30 * 1000)
+    for (const user of getConnectedUserList(null))
+        if (Date.now() - user.lastPing > 20 * 1000)
             disconnectUser(user)
-}, 20 * 1000)
+}, 1 * 1000)
 
 const port = process.env.PORT == undefined
     ? 8085
