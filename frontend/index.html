@@ -18,31 +18,68 @@
             </form>
         </div>
         <div id="stage" v-if="loggedIn">
-            <div id='room'>
-                <img id='background' />
+            <h2 class="big-red-alert" v-if="connectionLost">
+                Connection lost, please refresh the
+                page!　<br />接続できません、ページをリフレッシュしてください！
+            </h2>
+            <h2 class="big-red-alert" v-if="steppingOnPortalToNonAvailableRoom">
+                This room is not available yet. Sorry!<br />
+                まだ部屋の用意ができていません。ごめんね！
+            </h2>
+            <div id="canvas-container">
+                <video id="local-video" autoplay muted></video>
+                <canvas id="room-canvas" width="721px" height="511px" tabindex="0"></canvas>
+                <div id="infobox-container">
+                    <div id="infobox" class="hidden">
+                        <div id="infobox-area" class="infobox-line">
+                            <div class="infobox-title">ｴﾘｱ：</div>
+                            <div class="infobox-value">海辺の町</div>
+                        </div>
+                        <div id="infobox-roomname" class="infobox-line">
+                            <div class="infobox-title">ｽﾃｰｼﾞ：</div>
+                            <div class="infobox-value">{{ roomname }}</div>
+                        </div>
+                        <div id="infobox-username" class="infobox-line">
+                            <div class="infobox-title">名前：</div>
+                            <div class="infobox-value">{{ username }}</div>
+                        </div>
+                        <div id="infobox-usercount" class="infobox-line">
+                            <div class="infobox-title">人数：</div>
+                            <div class="infobox-value">{{ serverStats.userCount }}</div>
+                        </div>
+                    </div>
+                    <button id="infobox-button" class="canvas-button-top-right"></button>
+                </div>
             </div>
-            <canvas id="room-canvas" width="721px" height="511px" tabindex="0"></canvas>
             <div id="received-video-container" v-show="someoneIsStreaming && !iAmStreaming">
                 Streamer: {{ currentStreamerName }}
                 <div id="received-video-1"></div>
             </div>
-            <video id="local-video" autoplay muted></video>
 
-            <div>
-                Input: <input id="textBox" type="text"></input>
-                <button id="send-button">Send</button>
+
+            <div id="toolbar">
+                Input: <input id="input-textbox" type="text"></input>
+                <button id="send-button">発言</button>
+
+                <div id="movement-buttons">
+                    <button id="btn-move-left">←</button>
+                    <button id="btn-move-up">↑</button>
+                    <button id="btn-move-down">↓</button>
+                    <button id="btn-move-right">→</button>
+                </div>
+
                 <button id="start-streaming-button"
-                    v-show="roomAllowsStreaming && !someoneIsStreaming && !iAmStreaming && !wantToStream">Start
-                    streaming</button>
-                <button id="stop-streaming-button" v-show="iAmStreaming">Stop streaming</button>
+                    v-show="roomAllowsStreaming && !someoneIsStreaming && !iAmStreaming && !wantToStream">配信</button>
+                <button id="stop-streaming-button" v-show="iAmStreaming">配信停止</button>
                 <!-- <button id="logout">Logout</button> -->
             </div>
-            Log:
+            ログ：
             <div id="chatLog">
             </div>
 
             <audio id="message-sound" src="message.mp3"></audio>
             <audio id="login-sound" src="login.mp3"></audio>
+            <audio id="connection-lost-sound" src="connection-lost.mp3"></audio>
 
         </div>
     </div>

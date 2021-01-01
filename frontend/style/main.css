@@ -21,12 +21,18 @@ body
     overflow-y: auto;
 }
 
+
+#canvas-container
+{
+    font-family: Arial, Helvetica, sans-serif;
+}
+
 #local-video
 {
     position: absolute;
     width: 219px;
     top: 18px;
-    left: 510px;
+    right: 0px;
 }
 #received-video-container
 {
@@ -41,4 +47,146 @@ body
     position: absolute;
     top: 20px;
     left: 0px;
+}
+
+
+/* --- canvas triangle buttons --- */
+
+.canvas-button-top-right,
+.canvas-button-bottom-right,
+.canvas-button-bottom-left,
+.canvas-button-top-left
+{
+    width: 12px;
+    height: 12px;
+    
+    padding: 0;
+    border: 0;
+}
+
+.canvas-button-top-right:hover,
+.canvas-button-bottom-right:hover,
+.canvas-button-bottom-left:hover,
+.canvas-button-top-left:hover
+{
+    cursor: pointer;
+}
+
+.canvas-button-top-right
+    {background: linear-gradient(to bottom left, transparent 50%, #787878 50%);}
+.canvas-button-top-right:active
+    {background: linear-gradient(to bottom left, transparent 50%, #ffffff 50%);}
+    
+.canvas-button-bottom-right
+    {background: linear-gradient(to top left, transparent 50%, #787878 50%);}
+.canvas-button-bottom-right:active
+    {background: linear-gradient(to top left, transparent 50%, #ffffff 50%);}
+    
+.canvas-button-bottom-left
+    {background: linear-gradient(to top right, transparent 50%, #787878 50%);}
+.canvas-button-bottom-left:active
+    {background: linear-gradient(to top right, transparent 50%, #ffffff 50%);}
+
+.canvas-button-top-left
+    {background: linear-gradient(to bottom right, transparent 50%, #787878 50%);}
+.canvas-button-top-left:active
+    {background: linear-gradient(to bottom right, transparent 50%, #ffffff 50%);}
+
+
+/* --- infobox with names and stats etc --- */
+
+#infobox-container
+{
+    position: absolute;
+    top: 7px;
+    right: 7px;
+}
+
+#infobox-button
+{
+    position: absolute;
+    top: 2px;
+    right: 2px;
+}
+
+#infobox
+{
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 170px;
+    
+    background-color: rgba(120, 120, 120, 0.1);
+    color: #ffffff;
+    
+    padding: 3px;
+    
+    font-size: 12px;
+}
+
+.infobox-line
+{
+    margin: 3px;
+}
+
+.infobox-title,
+.infobox-value
+{
+    display: inline-block;
+}
+
+.infobox-title
+{
+    width: 44px;
+}
+
+
+
+
+.big-red-alert
+{
+    position: absolute;
+    z-index: 100;
+    color: #d00;
+}
+
+#stage
+{
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+#room-canvas
+{
+    width: 100%;   
+}
+
+#canvas-container
+{
+    position: relative;
+    max-width: 700px;
+}
+
+#movement-buttons
+{
+    display: inline;
+}
+
+#toolbar
+{
+    max-width: 700px;
+    display: flex;
+}
+
+#input-textbox
+{
+    flex-grow: 1;
+}
+
+
+.hidden
+{
+    visibility: hidden;
 }

@@ -25,7 +25,6 @@ export default class User
 
     moveImmediatelyToPosition(room: Room, logicalPositionX: number, logicalPositionY: number, direction: 'up' | 'down' | 'left' | 'right')
     {
-        console.log("moveImmediatelyToPosition for user", this.name)
         this.logicalPositionX = logicalPositionX;
         this.logicalPositionY = logicalPositionY;
 

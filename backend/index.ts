@@ -7,6 +7,7 @@ import { addNewUser, getConnectedUserList, getUser, Player, removeUser } from ".
 const app: express.Application = express()
 const http = require('http').Server(app);
 const io = require("socket.io")(http);
+const tripcode = require('tripcode');
 
 const delay = 0
 
@@ -20,16 +21,18 @@ io.on("connection", function (socket: any)
 
     socket.join(currentRoom.id)
 
-    socket.on("user-connect", function (userId: number)
+    socket.on("user-connect", function (userId: string)
     {
         try
         {
             user = getUser(userId);
+            if (!user)
+                socket.emit("server-cant-log-you-in")
 
             console.log("userId: " + userId + " name: " + user.name);
 
             socket.emit("server-update-current-room-state", currentRoom, getConnectedUserList(user.roomId))
-
+            emitServerStats()
         }
         catch (e)
         {
@@ -40,7 +43,15 @@ io.on("connection", function (socket: any)
     {
         try
         {
-            msg = msg.replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            msg = msg
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/((https?:\/\/|www\.)[^\s]+)/gi, function(url, prefix)
+                {
+                    let href = (prefix == "www." ? "http://" + url : url);
+                    return "<a href='" + href + "' target='_blank'>" + url + "</a>";
+                })
+            
             const userName = user.name
 
             console.log(userName + ": " + msg);
@@ -131,6 +142,8 @@ io.on("connection", function (socket: any)
             else
             {
                 currentStreamSlotId = streamSlotId
+                currentRoom.streams[streamSlotId].isActive = true
+                currentRoom.streams[streamSlotId].userId = user.id
 
                 socket.emit("server-ok-to-stream")
 
@@ -189,6 +202,13 @@ io.on("connection", function (socket: any)
     })
 });
 
+function emitServerStats()
+{
+    io.emit("server-stats", {
+        userCount: getConnectedUserList(null).length
+    })
+}
+
 app.use(express.static('frontend',
     { setHeaders: (res) => res.set("Cache-Control", "no-cache") }
 ));
@@ -212,7 +232,7 @@ app.post("/ping/:userId", async (req, res) =>
         {
             // Update last ping date for the user
             const { userId } = req.params
-            const user = getUser(Number.parseInt(userId))
+            const user = getUser(userId)
 
             if (!user)
                 return
@@ -233,23 +253,27 @@ app.use(express.json());
 app.post("/login", (req, res) =>
 {
     const { userName } = req.body
-
-    console.log(userName, "logging in")
-
     if (!userName)
     {
         res.statusCode = 500
         res.end("please specify a username")
+        return;
     }
-    else
-    {
-        const sanitizedUserName = userName.replace(/</g, "&lt;").replace(/>/g, "&gt;")
-        const user = addNewUser(sanitizedUserName);
-        res.json(user.id)
+    
+    const n = userName.indexOf("#");
+    let processedUserName = (n >= 0 ? userName.substr(0, n) : userName)
+        .replace("◆", "◇");
+    if (n >= 0)
+        processedUserName = processedUserName + "◆" + tripcode(userName.substr(n+1));
+    
+    console.log(processedUserName, "logging in")
+    
+    const sanitizedUserName = processedUserName.replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    const user = addNewUser(sanitizedUserName);
+    res.json(user.id)
 
-        io.to(user.roomId).emit("server-msg", "SYSTEM", sanitizedUserName + " connected");
-        io.to(user.roomId).emit("server-user-joined-room", user);
-    }
+    io.to(user.roomId).emit("server-msg", "SYSTEM", sanitizedUserName + " connected");
+    io.to(user.roomId).emit("server-user-joined-room", user);
 })
 
 function disconnectUser(user: Player)
@@ -263,6 +287,7 @@ function disconnectUser(user: Player)
 
         io.to(user.roomId).emit("server-msg", "SYSTEM", user.name + " disconnected");
         io.to(user.roomId).emit("server-user-left-room", user.id);
+        emitServerStats()
     }
     catch (e)
     {
@@ -296,7 +321,7 @@ app.post("/logout", (req, res) =>
 setInterval(() =>
 {
     for (const user of getConnectedUserList(null))
-        if (Date.now() - user.lastPing > 20 * 1000)
+        if (Date.now() - user.lastPing > 80 * 1000)
             disconnectUser(user)
 }, 1 * 1000)
 

@@ -7,9 +7,11 @@
     "browserify": "^17.0.0",
     "cross-env": "^7.0.3",
     "express": "^4.16.2",
-    "recordrtc": "^5.6.1",
     "socket.io": "^3.0.4",
-    "vue": "^2.6.12"
+    "recordrtc": "^5.6.1",
+    "vue": "^2.6.12",
+    "tripcode": "^1.3.4",
+    "uuid": "^8.3.2"
   },
   "license": "Beerware",
   "scripts": {
@@ -24,6 +26,7 @@
     "@types/recordrtc": "^5.6.3",
     "@types/socket.io": "^2.1.12",
     "@types/vue": "^2.0.0",
+    "@types/uuid": "^8.3.0",
     "nodemon": "^2.0.6",
     "ts-node": "^9.1.1",
     "ts-node-dev": "^1.1.1",

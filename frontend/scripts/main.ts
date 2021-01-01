@@ -42,18 +42,33 @@ const gikopoi = function ()
 
         socket.on("connect", function ()
         {
+            vueApp.connectionLost = false;
             socket.emit("user-connect", myUserID);
+            // TODO, give the server a way to reply "sorry, can't reconnect you"
+            // so we can show a decent error message
         });
+
+        socket.on("disconnect", () =>
+        {
+            const sound = document.getElementById("connection-lost-sound") as HTMLMediaElement
+            sound.play()
+            vueApp.connectionLost = true;
+        })
+        socket.on("server-cant-log-you-in", () =>
+        {
+            vueApp.connectionLost = true;
+        })
 
         socket.on("server-update-current-room-state", async function (roomDto: Room, usersDto: Player[])
         {
-            console.log("roomDto", roomDto)
             isLoadingRoom = true
 
             currentRoom = roomDto
             users = {}
 
-            console.log(usersDto)
+            // TODO We need actual room names
+            vueApp.roomname = currentRoom.id;
+
             for (const u of usersDto)
                 addUser(u);
 
@@ -74,13 +89,23 @@ const gikopoi = function ()
             isLoadingRoom = false
             requestedRoomChange = false
 
+            // stream stuff
             vueApp.roomAllowsStreaming = currentRoom.streams.length > 0
 
+            console.log(currentRoom)
+
+            // TODO THIS WON'T WORK FOR MULTIPLE STREAMS IN THE SAME ROOM!
+            const activeStream = currentRoom.streams.find(s => s.isActive)
+
+            if (activeStream)
+            {
+                vueApp.someoneIsStreaming = true
+                vueApp.currentStreamerName = users[activeStream.userId].name
+            }
         });
 
         socket.on("server-msg", function (userName: string, msg: string)
         {
-            console.log(userName)
             if (userName != "SYSTEM")
             {
                 const msgSound = document.getElementById("message-sound") as HTMLMediaElement
@@ -90,6 +115,11 @@ const gikopoi = function ()
             const chatLog = document.getElementById("chatLog")!;
             chatLog.innerHTML += userName + ": " + msg + "<br/>";
             chatLog.scrollTop = chatLog.scrollHeight;
+        });
+
+        socket.on("server-stats", function (serverStats)
+        {
+            vueApp.serverStats = serverStats;
         });
 
         socket.on("server-move", function (userId: number, x: number, y: number, direction: 'up' | 'down' | 'left' | 'right', isInstant: boolean)
@@ -136,7 +166,7 @@ const gikopoi = function ()
         socket.on("server-not-ok-to-stream", (reason: string) =>
         {
             vueApp.wantToStream = false
-            alert(reason)
+            showWarningToast(reason)
         })
         socket.on("server-ok-to-stream", () =>
         {
@@ -160,20 +190,22 @@ const gikopoi = function ()
 
         async function ping()
         {
+            if (vueApp.connectionLost)
+                return
             const response = await postJson("/ping/" + myUserID, { userId: myUserID })
             const { version: newVersion } = await response.json()
-            if (newVersion > version)
-            {
-                // TODO refresh page while keeping username ,selected character and room
-                alert("Sorry, a new version of gikopoi2 is ready, please refresh this page!")
-            }
-            else
-            {
-                version = newVersion
-            }
+            // if (newVersion > version)
+            // {
+            //     // TODO refresh page while keeping username ,selected character and room
+            //     showWarningToast("Sorry, a new version of gikopoi2 is ready, please refresh this page!")
+            // }
+            // else
+            // {
+            //     version = newVersion
+            // }
         }
 
-        setInterval(ping, 1000 * 10)
+        setInterval(ping, 1000 * 60)
     }
 
     function addUser(userDTO: Player)
@@ -311,6 +343,8 @@ const gikopoi = function ()
 
         if (currentUser.isWalking) return
 
+        vueApp.steppingOnPortalToNonAvailableRoom = false
+
         const door = currentRoom.doors.find(d =>
             d.x == currentUser.logicalPositionX &&
             d.y == currentUser.logicalPositionY)
@@ -318,6 +352,12 @@ const gikopoi = function ()
         if (!door) return
 
         const { targetRoomId, targetX, targetY } = door
+
+        if (targetRoomId == "NOT_READY_YET")
+        {
+            vueApp.steppingOnPortalToNonAvailableRoom = true
+            return
+        }
 
         if (webcamStream)
             stopStreaming()
@@ -343,7 +383,7 @@ const gikopoi = function ()
 
     function sendMessageToServer()
     {
-        const inputTextbox = document.getElementById("textBox") as HTMLInputElement
+        const inputTextbox = document.getElementById("input-textbox") as HTMLInputElement
 
         if (inputTextbox.value == "") return;
         socket.emit("user-msg", inputTextbox.value);
@@ -365,8 +405,9 @@ const gikopoi = function ()
 
         document.getElementById("room-canvas")!.addEventListener("keydown", onKeyDown);
 
+<<<<<<< HEAD:frontend/scripts/main.ts
         document.getElementById("textBox")!.addEventListener("keydown", (event) =>
-        {
+{
             if (event.key != "Enter") return
             sendMessageToServer()
         })
@@ -374,6 +415,16 @@ const gikopoi = function ()
         document.getElementById("send-button")!.addEventListener("click", () => sendMessageToServer())
         document.getElementById("start-streaming-button")!.addEventListener("click", () => wantToStartStreaming())
         document.getElementById("stop-streaming-button")!.addEventListener("click", () => stopStreaming())
+
+        document.getElementById("btn-move-left").addEventListener("click", () => sendNewPositionToServer("left"))
+        document.getElementById("btn-move-up").addEventListener("click", () => sendNewPositionToServer("up"))
+        document.getElementById("btn-move-down").addEventListener("click", () => sendNewPositionToServer("down"))
+        document.getElementById("btn-move-right").addEventListener("click", () => sendNewPositionToServer("right"))
+
+        document.getElementById("infobox-button").addEventListener("click", function ()
+        {
+            document.getElementById("infobox").classList.toggle("hidden");
+        });
 
         window.addEventListener("focus", () =>
         {
@@ -403,7 +454,9 @@ const gikopoi = function ()
         }
         catch (err)
         {
-            alert("sorry, can't find a webcam")
+            showWarningToast("sorry, can't find a webcam")
+            vueApp.wantToStream = false
+            webcamStream = false
         }
     }
 
@@ -459,16 +512,28 @@ const gikopoi = function ()
     }
 }();
 
+function showWarningToast(text)
+{
+    // TODO make this a nice, non-blocking message
+    alert(text)
+}
+
 const vueApp = new Vue({
     el: '#vue-app',
     data: {
         username: "",
+        roomname: "",
+        serverStats: {
+            userCount: 0
+        },
         loggedIn: false,
         wantToStream: false,
         iAmStreaming: false,
         someoneIsStreaming: false, // this won't be enough when we allow more than one stream slot in the same room
         roomAllowsStreaming: false,
         currentStreamerName: "",
+        connectionLost: false,
+        steppingOnPortalToNonAvailableRoom: false,
     },
     methods: {
         login: function (ev: Event)
@@ -481,4 +546,3 @@ const vueApp = new Vue({
         }
     }
 })
-

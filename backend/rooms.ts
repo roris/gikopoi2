@@ -72,7 +72,10 @@ export const rooms: { [roomId: string]: Room } = {
             // [[8, 4], "bar_street", [3, 5], 1]
             { x: 8, y: 4, targetRoomId: "admin_st", targetX: 0, targetY: 2 }
         ],
-        streams: [{ isActive: false, withSound: null, withVideo: null }, { isActive: false, withSound: null, withVideo: null }],
+        streams: [
+            { isActive: false, withSound: null, withVideo: null, userId: null },
+            { isActive: false, withSound: null, withVideo: null, userId: null },
+        ],
         // users: [],
     },
     admin_st: {
@@ -100,7 +103,10 @@ export const rooms: { [roomId: string]: Room } = {
         ],
         doors: [
             { x: 0, y: 2, targetRoomId: "bar", targetX: 8, targetY: 4 },
-            { x: 2, y: 4, targetRoomId: "admin", targetX: 10, targetY: 0 }
+            { x: 2, y: 4, targetRoomId: "admin", targetX: 10, targetY: 0 },
+            { x: 7, y: 4, targetRoomId: "NOT_READY_YET", targetX: 10, targetY: 0 },
+            { x: 7, y: 0, targetRoomId: "NOT_READY_YET", targetX: 10, targetY: 0 },
+            { x: 9, y: 2, targetRoomId: "NOT_READY_YET", targetX: 10, targetY: 0 },
         ],
         streams: [],
         // users: [],
@@ -132,6 +138,7 @@ export const rooms: { [roomId: string]: Room } = {
             [1, 4],
         ],
         blocked: [
+            { x: 0, y: 5 }, // shobon
             { x: 2, y: 1 },
             { x: 2, y: 2 },
             { x: 2, y: 3 },
