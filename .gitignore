@@ -1,2 +1,3 @@
 node_modules
-build
+src/backend/build
+src/static/scripts
