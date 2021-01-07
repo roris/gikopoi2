@@ -1,35 +1,27 @@
 import { v4 } from "uuid";
+import { Player } from "../common/types";
 import { defaultRoom } from "./rooms";
-import { Direction } from "./types";
 
 function generateId()
 {
     return v4()
 }
 
-export class Player
-{
-    public id: string = generateId();
-    public name: string = "Anonymous";
-    public position: { x: number, y: number } = { x: defaultRoom.spawnPoint.x, y: defaultRoom.spawnPoint.y };
-    public character: 'giko' = 'giko';
-    public direction: Direction = defaultRoom.spawnPoint.direction;
-    public connected: boolean = true;
-    public roomId: string = defaultRoom.id;
-    public lastPing = Date.now();
-    public mediaStream: MediaStream | null = null;
-
-    constructor(options: { name?: string })
-    {
-        if (options.name) this.name = options.name
-    }
-}
-
 const users: { [id: string]: Player; } = {}
 
 export function addNewUser(name: string)
 {
-    const p = new Player({ name });
+    const p: Player = {
+        id: generateId(),
+        name: "Anonymous",
+        position: { x: defaultRoom.spawnPoint.x, y: defaultRoom.spawnPoint.y },
+        character: 'giko',
+        direction: defaultRoom.spawnPoint.direction,
+        connected: true,
+        roomId: defaultRoom.id,
+        lastPing: Date.now(),
+        mediaStream: null,
+    };
     users[p.id] = p;
 
     return p;
@@ -37,13 +29,6 @@ export function addNewUser(name: string)
 
 export function getConnectedUserList(roomId: string | null): Player[]
 {
-    // const output: { [id: number]: Player; } = {};
-    // for (const u in users)
-    //     if (users.hasOwnProperty(u))
-    //     {
-    //         output[u] = users[u];
-    //     }
-    // return output;
     if (roomId)
         return Object.values(users).filter(u => u.roomId == roomId)
     else

@@ -7,7 +7,9 @@ import { loadImage, calculateRealCoordinates, globalScale, postJson } from "./ut
 import { messages } from "./lang";
 import Vue from "vue";
 import VueI18n from "vue-i18n";
-import { Room, StreamSlot } from "../common/types";
+import { Direction, Player, Room, ServerStats, StreamSlot, StreamSlotFrontend, UserDictionary, UserID } from "../common/types";
+
+const io = require("socket.io");
 
 const stunServers = [{
     urls: [
@@ -23,6 +25,18 @@ const iceConfig = {
     iceServers: stunServers
 }
 
+function playMediaElement(elementID: string)
+{
+    const el = document.getElementById(elementID) as HTMLMediaElement
+    el.play()
+}
+
+function getContext()
+{
+    const canvas = document.getElementById("room-canvas") as HTMLCanvasElement
+    return canvas.getContext("2d")!;
+}
+
 const i18n = new VueI18n({
     locale: localStorage.getItem("locale") || 'ja',
     fallbackLocale: 'ja',
@@ -34,8 +48,8 @@ const vueApp = new Vue({
     el: '#vue-app',
     data: {
         gikoCharacter: new Character("giko"),
-        socket: null,
-        users: {},
+        socket: null as SocketIOClient.Socket | null,
+        users: {} as { [id: string]: User; },
         currentRoom: null as Room | null,
         myUserID: null,
         isWaitingForServerResponseOnMovement: false,
@@ -46,7 +60,7 @@ const vueApp = new Vue({
         webcamStream: null,
         streamSlotIdInWhichIWantToStream: null,
         isInfoboxVisible: localStorage.getItem("isInfoboxVisible") == "true",
-        rtcPeerConnection: null,
+        rtcPeerConnection: null as RTCPeerConnection | null,
         isSoundEnabled: localStorage.getItem("isSoundEnabled") == "true",
 
         // Possibly redundant data:
@@ -91,12 +105,12 @@ const vueApp = new Vue({
 
             this.myUserID = await loginResponse.json()
 
-            this.socket = io()
+            this.socket = io() as SocketIOClient.Socket
 
             this.socket.on("connect", () => 
             {
                 this.connectionLost = false;
-                this.socket.emit("user-connect", this.myUserID);
+                this.socket!.emit("user-connect", this.myUserID);
                 // TODO, give the server a way to reply "sorry, can't reconnect you"
                 // so we can show a decent error message
             });
@@ -104,7 +118,7 @@ const vueApp = new Vue({
             this.socket.on("disconnect", () =>
             {
                 if (this.isSoundEnabled)
-                    document.getElementById("connection-lost-sound").play()
+                    playMediaElement("connection-lost-sound")
                 this.connectionLost = true;
             })
             this.socket.on("server-cant-log-you-in", () =>
@@ -112,7 +126,7 @@ const vueApp = new Vue({
                 this.connectionLost = true;
             })
 
-            this.socket.on("server-update-current-room-state", async (roomDto, usersDto) =>
+            this.socket.on("server-update-current-room-state", async (roomDto: Room, usersDto: Player[]) =>
             {
                 this.isLoadingRoom = true
 
@@ -130,7 +144,7 @@ const vueApp = new Vue({
 
                 loadImage(this.currentRoom.backgroundImageUrl).then(image =>
                 {
-                    this.currentRoom.backgroundImage = image
+                    this.currentRoom!.backgroundImage = image
                 })
                 for (const o of this.currentRoom.objects)
                 {
@@ -146,7 +160,7 @@ const vueApp = new Vue({
                 // Force update of user coordinates using the current room's logics (origin coordinates, etc)
                 this.forcePhysicalPositionRefresh()
 
-                document.getElementById("room-canvas").focus()
+                document.getElementById("room-canvas")!.focus()
                 this.justSpawnedToThisRoom = true
                 this.isLoadingRoom = false
                 this.requestedRoomChange = false
@@ -157,24 +171,22 @@ const vueApp = new Vue({
                 this.updateStreamSlots()
             });
 
-            this.socket.on("server-msg", (userName, msg) =>
+            this.socket.on("server-msg", (userName: string, msg: string) =>
             {
-                const chatLog = document.getElementById("chatLog");
+                const chatLog = document.getElementById("chatLog") as HTMLElement
                 if (userName != "SYSTEM" && this.isSoundEnabled)
-                {
-                    document.getElementById("message-sound").play()
-                }
+                    playMediaElement("message-sound")
 
                 chatLog.innerHTML += userName + ": " + msg + "<br/>";
                 chatLog.scrollTop = chatLog.scrollHeight;
             });
 
-            this.socket.on("server-stats", (serverStats) =>
+            this.socket.on("server-stats", (serverStats: ServerStats) =>
             {
                 this.serverStats = serverStats;
             });
 
-            this.socket.on("server-move", (userId, x, y, direction, isInstant) =>
+            this.socket.on("server-move", (userId: UserID, x: number, y: number, direction: Direction, isInstant: boolean) =>
             {
                 const user = this.users[userId];
 
@@ -182,7 +194,7 @@ const vueApp = new Vue({
                 const oldY = user.logicalPositionY
 
                 if (isInstant)
-                    user.moveImmediatelyToPosition(this.currentRoom, x, y, direction)
+                    user.moveImmediatelyToPosition(this.currentRoom!, x, y, direction)
                 else
                     user.moveToPosition(x, y, direction)
 
@@ -196,20 +208,20 @@ const vueApp = new Vue({
 
             this.socket.on("server-reject-movement", () => this.isWaitingForServerResponseOnMovement = false)
 
-            this.socket.on("server-user-joined-room", async (user) =>
+            this.socket.on("server-user-joined-room", async (user: Player) =>
             {
                 if (this.isSoundEnabled)
-                    document.getElementById("login-sound").play()
+                    playMediaElement("login-sound")
                 this.addUser(user);
             });
 
-            this.socket.on("server-user-left-room", (userId) =>
+            this.socket.on("server-user-left-room", (userId: UserID) =>
             {
                 if (userId != this.myUserID)
                     delete this.users[userId];
             });
 
-            this.socket.on("server-stream-data", (streamSlotId, arrayBuffer) =>
+            this.socket.on("server-stream-data", (streamSlotId: number, arrayBuffer: ArrayBuffer) =>
             {
                 const slot = this.currentRoomStreamSlots[streamSlotId]
 
@@ -218,7 +230,7 @@ const vueApp = new Vue({
                 slot.queue.push(arrayBuffer)
                 if (!slot.isPlaying) slot.playFromQueue()
             })
-            this.socket.on("server-not-ok-to-stream", (reason) =>
+            this.socket.on("server-not-ok-to-stream", (reason: string) =>
             {
                 this.wantToStream = false
                 this.showWarningToast(reason)
@@ -229,17 +241,17 @@ const vueApp = new Vue({
                 this.iAmStreaming = true
                 this.startStreaming()
             })
-            this.socket.on("server-update-current-room-streams", (streams) =>
+            this.socket.on("server-update-current-room-streams", (streams: StreamSlot[]) =>
             {
                 const mimeType = 'video/webm;codecs="vp8,opus"'
 
-                this.currentRoom.streams = streams.map((s, i) =>
+                this.currentRoom!.streams = streams.map((s, i) =>
                 {
                     if (s.userId == this.myUserID)
                         return s
 
-                    if (this.currentRoom.streams[i].isActive == s.isActive)
-                        return this.currentRoom.streams[i]
+                    if (this.currentRoom!.streams[i].isActive == s.isActive)
+                        return this.currentRoom!.streams[i]
 
                     s.isPlaying = false
                     s.mediaSource = new MediaSource()
@@ -257,7 +269,7 @@ const vueApp = new Vue({
                             return
                         }
                         s.isPlaying = true
-                        s.sourceBuffer.appendBuffer(s.queue.shift())
+                        s.sourceBuffer.appendBuffer(s.queue.shift()!)
                     }
 
                     s.mediaSource.addEventListener("sourceopen", (e) =>
@@ -277,17 +289,17 @@ const vueApp = new Vue({
                 this.updateStreamSlots()
             })
 
-            this.socket.on("server-rtc-answer", async (answer) =>
+            this.socket.on("server-rtc-answer", async (answer: RTCSessionDescriptionInit) =>
             {
                 if (this.rtcPeerConnection === null) return;
                 await this.rtcPeerConnection.setRemoteDescription(answer)
             })
-            this.socket.on("server-rtc-ice-candidate", async (candidate) =>
+            this.socket.on("server-rtc-ice-candidate", async (candidate: RTCIceCandidate) =>
             {
                 if (this.rtcPeerConnection === null) return;
                 await this.rtcPeerConnection.addIceCandidate(candidate)
             })
-            this.socket.on("server-ok-to-get-stream", async (candidate) =>
+            this.socket.on("server-ok-to-get-stream", async (candidate: RTCIceCandidate) =>
             {
                 if (this.rtcPeerConnection === null) return;
                 await this.negotiateRTCPeerConnection()
@@ -314,36 +326,36 @@ const vueApp = new Vue({
 
             setInterval(ping, 1000 * 60)
         },
-        addUser: function (userDTO)
+        addUser: function (userDTO: Player)
         {
             const newUser = new User(this.gikoCharacter, userDTO.name);
-            newUser.moveImmediatelyToPosition(this.currentRoom, userDTO.position.x, userDTO.position.y, userDTO.direction);
+            newUser.moveImmediatelyToPosition(this.currentRoom!, userDTO.position.x, userDTO.position.y, userDTO.direction);
             this.users[userDTO.id] = newUser;
         },
-        drawImage: function (image, x, y, scale)
+        drawImage: function (image: HTMLImageElement, x: number, y: number, scale?: number)
         {
             if (!image) return // image might be null when rendering a room that hasn't been fully loaded
 
             if (!scale)
                 scale = 1
 
-            const context = document.getElementById("room-canvas").getContext("2d");
+            const context = getContext();
             context.drawImage(image,
                 x,
                 y - image.height * globalScale * scale,
                 image.width * globalScale * scale,
                 image.height * globalScale * scale)
         },
-        drawHorizontallyFlippedImage: function (image, x, y)
+        drawHorizontallyFlippedImage: function (image: HTMLImageElement, x: number, y: number)
         {
-            const context = document.getElementById("room-canvas").getContext("2d");
+            const context = getContext();
             context.scale(-1, 1)
             this.drawImage(image, - x - image.width / 2, y)
             context.setTransform(1, 0, 0, 1, 0, 0); // clear transformation
         },
-        drawCenteredText: function (text, x, y)
+        drawCenteredText: function (text: string, x: number, y: number)
         {
-            const context = document.getElementById("room-canvas").getContext("2d");
+            const context = getContext();
             // const width = context.measureText(text).width
             context.font = "bold 13px Arial, Helvetica, sans-serif"
             context.textBaseline = "bottom"
@@ -360,7 +372,7 @@ const vueApp = new Vue({
                 this.forceUserInstantMove = false
             }
 
-            const context = document.getElementById("room-canvas").getContext("2d");
+            const context = getContext();
             context.fillStyle = "#c0c0c0"
             context.fillRect(0, 0, 721, 511)
 
