@@ -13,6 +13,11 @@
         "noImplicitThis": true,
         "noUnusedLocals": true
     },
+    "references": [
+        {
+            "path": "../common"
+        }
+    ],
     "include": [
         "**/*"
     ]

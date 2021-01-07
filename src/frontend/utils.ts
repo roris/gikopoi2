@@ -3,7 +3,7 @@ export const BLOCK_HEIGHT = 80
 
 export const globalScale = 0.5;
 
-export function loadImage(url)
+export function loadImage(url: string): Promise<HTMLImageElement>
 {
     return new Promise((resolve, reject) =>
     {

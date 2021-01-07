@@ -1,10 +1,13 @@
 //localStorage.debug = '*'; // socket.io debug
 localStorage.removeItem("debug")
 
-import Character from "./character.js";
+import Character from "./character";
 import User from "./user.js";
-import { loadImage, calculateRealCoordinates, globalScale, sleep, postJson } from "./utils.js";
-import { messages } from "./lang.js";
+import { loadImage, calculateRealCoordinates, globalScale, postJson } from "./utils";
+import { messages } from "./lang";
+import Vue from "vue";
+import VueI18n from "vue-i18n";
+import { Room, StreamSlot } from "../common/types";
 
 const stunServers = [{
     urls: [
@@ -33,7 +36,7 @@ const vueApp = new Vue({
         gikoCharacter: new Character("giko"),
         socket: null,
         users: {},
-        currentRoom: null,
+        currentRoom: null as Room | null,
         myUserID: null,
         isWaitingForServerResponseOnMovement: false,
         justSpawnedToThisRoom: true,
@@ -59,31 +62,30 @@ const vueApp = new Vue({
         currentStreamerName: "",
         connectionLost: false,
         steppingOnPortalToNonAvailableRoom: false,
-        currentRoomStreamSlots: [],
+        currentRoomStreamSlots: [] as StreamSlot[],
         receivedVideoPlayers: [],
     },
     methods: {
-        login: async function (ev)
+        login: async function ()
         {
-            ev.preventDefault()
             if (this.username === "")
-                this.username = i18n.t('default_user_name')
+                this.username = i18n.tc('default_user_name')
             this.loggedIn = true
             await this.gikoCharacter.loadImages()
             this.registerKeybindings()
             await this.connectToServer(this.username)
             this.paint()
         },
-        showWarningToast: function showWarningToast(text)
+        showWarningToast: function showWarningToast(text: string)
         {
             // TODO make this a nice, non-blocking message
             alert(text)
         },
         updateStreamSlots: async function ()
         {
-            this.currentRoomStreamSlots = this.currentRoom.streams
+            this.currentRoomStreamSlots = this.currentRoom!.streams
         },
-        connectToServer: async function (username)
+        connectToServer: async function (username: string)
         {
             const loginResponse = await postJson("/login", { userName: username })
 
@@ -350,7 +352,7 @@ const vueApp = new Vue({
             context.fillText(text, x, y)
         },
         // TODO: Refactor this entire function
-        paint: function (timestamp)
+        paint: function ()
         {
             if (this.forceUserInstantMove)
             {

@@ -1,4 +1,4 @@
-import { Room } from "./types";
+import { Room } from "../common/types"
 
 export const rooms: { [roomId: string]: Room } = {
     bar: {
