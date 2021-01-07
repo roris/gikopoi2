@@ -1,8 +1,8 @@
 import express from "express"
 import { readFile } from "fs";
 import { defaultRoom, rooms } from "./rooms";
-import { Direction, ServerStats } from "../common/types";
-import { addNewUser, getConnectedUserList, getUser, Player, removeUser } from "./users";
+import { Direction, Player, ServerStats } from "../common/types";
+import { addNewUser, getConnectedUserList, getUser, removeUser } from "./users";
 import { sleep } from "./utils";
 const app: express.Application = express()
 const http = require('http').Server(app);

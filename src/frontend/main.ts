@@ -7,7 +7,7 @@ import { loadImage, calculateRealCoordinates, globalScale, postJson } from "./ut
 import { messages } from "./lang";
 import Vue from "vue";
 import VueI18n from "vue-i18n";
-import { Direction, Player, Room, ServerStats, StreamSlot, StreamSlotFrontend, UserDictionary, UserID } from "../common/types";
+import { Direction, Player, Room, ServerStats, StreamSlot, UserID } from "../common/types";
 
 const io = require("socket.io");
 
@@ -43,7 +43,7 @@ const i18n = new VueI18n({
     messages,
 })
 
-const vueApp = new Vue({
+new Vue({
     i18n,
     el: '#vue-app',
     data: {
@@ -51,14 +51,14 @@ const vueApp = new Vue({
         socket: null as SocketIOClient.Socket | null,
         users: {} as { [id: string]: User; },
         currentRoom: null as Room | null,
-        myUserID: null,
+        myUserID: null as string | null,
         isWaitingForServerResponseOnMovement: false,
         justSpawnedToThisRoom: true,
         isLoadingRoom: false,
         requestedRoomChange: false,
         forceUserInstantMove: false,
-        webcamStream: null,
-        streamSlotIdInWhichIWantToStream: null,
+        webcamStream: null as MediaStream | null,
+        streamSlotIdInWhichIWantToStream: null as number | null,
         isInfoboxVisible: localStorage.getItem("isInfoboxVisible") == "true",
         rtcPeerConnection: null as RTCPeerConnection | null,
         isSoundEnabled: localStorage.getItem("isSoundEnabled") == "true",
@@ -151,7 +151,7 @@ const vueApp = new Vue({
                     loadImage("rooms/" + this.currentRoom.id + "/" + o.url).then(image =>
                     {
                         o.image = image
-                        const { x, y } = calculateRealCoordinates(this.currentRoom, o.x, o.y);
+                        const { x, y } = calculateRealCoordinates(this.currentRoom!, o.x, o.y);
                         o.physicalPositionX = x + (o.xOffset || 0)
                         o.physicalPositionY = y + (o.yOffset || 0)
                     })
@@ -227,7 +227,7 @@ const vueApp = new Vue({
 
                 if (!slot || !slot.mediaSource || slot.mediaSource.readyState != "open")
                     return
-                slot.queue.push(arrayBuffer)
+                slot.queue!.push(arrayBuffer)
                 if (!slot.isPlaying) slot.playFromQueue()
             })
             this.socket.on("server-not-ok-to-stream", (reason: string) =>
@@ -263,18 +263,18 @@ const vueApp = new Vue({
 
                     s.playFromQueue = () =>
                     {
-                        if (!s.queue.length)
+                        if (!s.queue!.length)
                         {
                             s.isPlaying = false
                             return
                         }
                         s.isPlaying = true
-                        s.sourceBuffer.appendBuffer(s.queue.shift()!)
+                        s.sourceBuffer!.appendBuffer(s.queue!.shift()!)
                     }
 
                     s.mediaSource.addEventListener("sourceopen", (e) =>
                     {
-                        s.sourceBuffer = s.mediaSource.addSourceBuffer(mimeType);
+                        s.sourceBuffer = s.mediaSource!.addSourceBuffer(mimeType);
                         s.sourceBuffer.addEventListener('updateend', () =>
                         {
                             s.playFromQueue()
@@ -305,23 +305,12 @@ const vueApp = new Vue({
                 await this.negotiateRTCPeerConnection()
             })
 
-            let version = Infinity
-
             const ping = async () =>
             {
                 if (this.connectionLost)
                     return
                 const response = await postJson("/ping/" + this.myUserID, { userId: this.myUserID })
-                const { version: newVersion } = await response.json()
-                // if (newVersion > version)
-                // {
-                //     // TODO refresh page while keeping username ,selected character and room
-                //     showWarningToast("Sorry, a new version of gikopoi2 is ready, please refresh this page!")
-                // }
-                // else
-                // {
-                //     version = newVersion
-                // }
+                await response.json()
             }
 
             setInterval(ping, 1000 * 60)
@@ -373,7 +362,7 @@ const vueApp = new Vue({
             }
 
             const context = getContext();
-            context.fillStyle = "#c0c0c0"
+            context.fillStyle = this.currentRoom?.backgroundColor || "#c0c0c0"
             context.fillRect(0, 0, 721, 511)
 
             if (this.currentRoom)
@@ -382,17 +371,17 @@ const vueApp = new Vue({
                 context.fillRect(0, 0, 721, 511)
 
                 // draw background
-                this.drawImage(this.currentRoom.backgroundImage, 0, 511, this.currentRoom.scale)
+                this.drawImage(this.currentRoom.backgroundImage!, 0, 511, this.currentRoom.scale)
 
                 const allObjects = this.currentRoom.objects.map(o => ({
-                    o,
+                    o: o as any,
                     type: "room-object",
-                    priority: o.x + 1 + (this.currentRoom.size.y - o.y)
+                    priority: o.x + 1 + (this.currentRoom!.size.y - o.y)
                 }))
                     .concat(Object.values(this.users).map(o => ({
                         o,
                         type: "user",
-                        priority: o.logicalPositionX + 1 + (this.currentRoom.size.y - o.logicalPositionY)
+                        priority: o.logicalPositionX + 1 + (this.currentRoom!.size.y - o.logicalPositionY)
                     })))
                     .sort((a, b) =>
                     {
@@ -442,13 +431,13 @@ const vueApp = new Vue({
             if (this.isWaitingForServerResponseOnMovement) return
             if (this.requestedRoomChange) return
 
-            const currentUser = this.users[this.myUserID]
+            const currentUser = this.users[this.myUserID!]
 
             if (currentUser.isWalking) return
 
             this.steppingOnPortalToNonAvailableRoom = false
 
-            const door = this.currentRoom.doors.find(d =>
+            const door = this.currentRoom!.doors.find(d =>
                 d.x == currentUser.logicalPositionX &&
                 d.y == currentUser.logicalPositionY)
 
@@ -466,27 +455,31 @@ const vueApp = new Vue({
                 this.stopStreaming()
 
             this.requestedRoomChange = true
-            this.socket.emit("user-change-room", { targetRoomId, targetX, targetY });
+            this.socket!.emit("user-change-room", { targetRoomId, targetX, targetY });
         },
         forcePhysicalPositionRefresh: function ()
         {
-            for (const u of Object.values(this.users))
-                u.moveImmediatelyToPosition(this.currentRoom, u.logicalPositionX, u.logicalPositionY, u.direction)
+            if (this.currentRoom)
+                for (const u of Object.values(this.users))
+                    u.moveImmediatelyToPosition(this.currentRoom, u.logicalPositionX, u.logicalPositionY, u.direction)
         },
-        sendNewPositionToServer: function (direction)
+        sendNewPositionToServer: function (direction: Direction)
         {
+            if (!this.myUserID)
+                return
+
             if (this.isLoadingRoom || this.isWaitingForServerResponseOnMovement || this.users[this.myUserID].isWalking)
                 return
 
             this.isWaitingForServerResponseOnMovement = true
-            this.socket.emit("user-move", direction);
+            this.socket!.emit("user-move", direction);
         },
         sendMessageToServer: function ()
         {
-            const inputTextbox = document.getElementById("input-textbox")
+            const inputTextbox = document.getElementById("input-textbox") as HTMLInputElement
 
             if (inputTextbox.value == "") return;
-            this.socket.emit("user-msg", inputTextbox.value);
+            this.socket!.emit("user-msg", inputTextbox.value);
             inputTextbox.value = "";
         },
         registerKeybindings: function ()
@@ -495,11 +488,11 @@ const vueApp = new Vue({
         },
         toggleInfobox: function ()
         {
-            localStorage.setItem("isInfoboxVisible", this.isInfoboxVisible = !this.isInfoboxVisible);
+            localStorage.setItem("isInfoboxVisible", (this.isInfoboxVisible = !this.isInfoboxVisible).toString());
         },
         toggleSound: function ()
         {
-            localStorage.setItem("isSoundEnabled", this.isSoundEnabled = !this.isSoundEnabled);
+            localStorage.setItem("isSoundEnabled", (this.isSoundEnabled = !this.isSoundEnabled).toString());
             console.log(localStorage.getItem("isSoundEnabled"))
         },
         switchLanguage: function ()
@@ -507,7 +500,7 @@ const vueApp = new Vue({
             i18n.locale = (i18n.locale == "ja" ? "en" : "ja")
             localStorage.setItem("locale", i18n.locale)
         },
-        handleCanvasKeydown: function (event)
+        handleCanvasKeydown: function (event: KeyboardEvent)
         {
             switch (event.key)
             {
@@ -517,7 +510,7 @@ const vueApp = new Vue({
                 case "ArrowDown": this.sendNewPositionToServer("down"); break;
             }
         },
-        handleMessageInputKeydown: function (event)
+        handleMessageInputKeydown: function (event: KeyboardEvent)
         {
             if (event.key != "Enter") return
             this.sendMessageToServer()
@@ -533,10 +526,10 @@ const vueApp = new Vue({
             this.rtcPeerConnection.addEventListener('icecandidate', (event) =>
             {
                 if (event.candidate && event.candidate.candidate)
-                    this.socket.emit('user-rtc-ice-candidate', event.candidate)
+                    this.socket!.emit('user-rtc-ice-candidate', event.candidate)
             });
             this.rtcPeerConnection.addEventListener('iceconnectionstatechange',
-                (event) => console.log('ICE state change event: ', this.rtcPeerConnection.iceConnectionState));
+                (event) => console.log('ICE state change event: ', this.rtcPeerConnection!.iceConnectionState));
         },
 
         /*
@@ -545,12 +538,12 @@ const vueApp = new Vue({
         */
         negotiateRTCPeerConnection: async function ()
         {
-            const offer = await this.rtcPeerConnection.createOffer({
+            const offer = await this.rtcPeerConnection!.createOffer({
                 offerToReceiveAudio: true,
                 offerToReceiveVideo: true
             })
-            await this.rtcPeerConnection.setLocalDescription(offer);
-            this.socket.emit('user-rtc-offer', offer)
+            await this.rtcPeerConnection!.setLocalDescription(offer);
+            this.socket!.emit('user-rtc-offer', offer)
         },
 
         closeRTCPeerConnection: function ()
@@ -560,33 +553,29 @@ const vueApp = new Vue({
             this.rtcPeerConnection = null;
         },
 
-        wantToStartStreaming: async function (streamSlotId)
+        wantToStartStreaming: async function (streamSlotId: number)
         {
             try
             {
-                const withVideo = true;
-                const withSound = true;
-
                 this.wantToStream = true
                 this.streamSlotIdInWhichIWantToStream = streamSlotId
 
-                let userMedia = {}
-                if (withVideo) userMedia.audio = true;
-                if (withSound) userMedia.video = {
-                    width: 320,
-                    height: 240,
-                    frameRate: {
-                        ideal: 60,
-                        min: 10
+                this.webcamStream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: {
+                        width: 320,
+                        height: 240,
+                        frameRate: {
+                            ideal: 60,
+                            min: 10
+                        }
                     }
-                };
+                })
 
-                this.webcamStream = await navigator.mediaDevices.getUserMedia(userMedia)
-
-                this.socket.emit('user-want-to-stream', {
+                this.socket!.emit('user-want-to-stream', {
                     streamSlotId: streamSlotId,
-                    withVideo: withVideo,
-                    withSound: withSound
+                    withVideo: true,
+                    withSound: true,
                 })
 
             }
@@ -595,43 +584,44 @@ const vueApp = new Vue({
                 this.showWarningToast("sorry, can't find a webcam")
                 console.error(err)
                 this.wantToStream = false
-                this.webcamStream = false
+                this.webcamStream = null
             }
         },
         startStreaming: async function ()
         {
             this.openRTCPeerConnection()
 
-            this.webcamStream.getTracks().forEach(track =>
-                this.rtcPeerConnection.addTrack(track, this.webcamStream));
+            this.webcamStream!.getTracks().forEach(track =>
+                this.rtcPeerConnection!.addTrack(track, this.webcamStream!));
 
             this.negotiateRTCPeerConnection()
 
-            document.getElementById(
-                "local-video-" + this.streamSlotIdInWhichIWantToStream)
-                .srcObject = this.webcamStream;
+            const videoElement = document.getElementById("local-video-" + this.streamSlotIdInWhichIWantToStream!.toString()) as HTMLVideoElement
+            videoElement.srcObject = this.webcamStream;
         },
         stopStreaming: function ()
         {
             this.iAmStreaming = false
-            for (const track of this.webcamStream.getTracks())
+            for (const track of this.webcamStream!.getTracks())
                 track.stop()
-            document.getElementById("local-video-" + this.streamSlotIdInWhichIWantToStream).srcObject = this.webcamStream = null;
+
+            const videoElement = document.getElementById("local-video-" + this.streamSlotIdInWhichIWantToStream!.toString()) as HTMLVideoElement
+            videoElement.srcObject = this.webcamStream = null;
             this.streamSlotIdInWhichIWantToStream = null
-            this.socket.emit("user-want-to-stop-stream")
+            this.socket!.emit("user-want-to-stop-stream")
         },
-        wantToGetStream: function (streamSlotId)
+        wantToGetStream: function (streamSlotId: number)
         {
             this.openRTCPeerConnection()
 
-            this.rtcPeerConnection.addEventListener('track', (event) =>
+            this.rtcPeerConnection!.addEventListener('track', (event) =>
             {
-                document.getElementById("received-video-" + streamSlotId).srcObject = event.streams[0];
+                const videoElement = document.getElementById("received-video-" + streamSlotId) as HTMLVideoElement
+                videoElement.srcObject = event.streams[0];
             }, { once: true });
 
-            this.socket.emit("user-want-to-get-stream", streamSlotId)
+            this.socket!.emit("user-want-to-get-stream", streamSlotId)
         },
-
 
         logout: async function ()
         {

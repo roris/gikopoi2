@@ -16,13 +16,13 @@ export interface StreamSlot
     userId: string | null,
 
     // Used only in frontend:
-    mediaSource: MediaSource
-    queue: ArrayBuffer[]
-    isPlaying: boolean
-    playFromQueue: any // is this still useful?
-    initializationSegment: ArrayBuffer // is this still useful?
-    sourceBuffer: SourceBuffer // is this still useful?
-    src: string // is this still useful?
+    mediaSource?: MediaSource
+    queue?: ArrayBuffer[]
+    isPlaying?: boolean
+    playFromQueue?: any // is this still useful?
+    initializationSegment?: ArrayBuffer // is this still useful?
+    sourceBuffer?: SourceBuffer // is this still useful?
+    src?: string // is this still useful?
 }
 
 export interface Room
@@ -32,7 +32,7 @@ export interface Room
     size: Coordinates;
     originCoordinates: Coordinates;
     backgroundImageUrl: string;
-    backgroundImage: HTMLImageElement; // populated only on client side (could be deleted during refactoring, i think)
+    backgroundImage?: HTMLImageElement; // populated only on client side (could be deleted during refactoring, i think)
     backgroundColor: string;
     spawnPoint: {
         x: number;
@@ -48,9 +48,9 @@ export interface Room
         yOffset?: number;
 
         // Fields used only by frontend, please delete during refactoring:
-        image: HTMLImageElement
-        physicalPositionX: number
-        physicalPositionY: number
+        image?: HTMLImageElement
+        physicalPositionX?: number
+        physicalPositionY?: number
     }[];
     sit: Coordinates[];
     blocked: Coordinates[];
