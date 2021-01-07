@@ -2,7 +2,7 @@
   "name": "gikopoi2",
   "version": "0.0.1",
   "description": "gikopoi2",
-  "main": "build/index.js",
+  "main": "src/backend/build/index.js",
   "dependencies": {
     "cross-env": "^7.0.3",
     "express": "^4.16.2",
@@ -14,8 +14,8 @@
   },
   "license": "Beerware",
   "scripts": {
-    "start": "node build/index.js",
-    "dev": "ts-node-dev --respawn --project src/backend/tsconfig.json --watch src/frontend src/backend/index.ts",
+    "start": "node src/backend/build/index.js",
+    "dev": "nodemon -e ts --exec \"yarn build && yarn start\"",
     "build": "npx tsc --build src/tsconfig.json"
   },
   "devDependencies": {
@@ -26,6 +26,7 @@
     "nodemon": "^2.0.6",
     "ts-node": "^9.1.1",
     "ts-node-dev": "^1.1.1",
-    "typescript": "^4.1.3"
+    "typescript": "^4.1.3",
+    "yarn": "^1.22.10"
   }
 }
