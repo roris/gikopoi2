@@ -1107,6 +1107,11 @@ const vueApp = new Vue({
                             
                             vuMeterBarSecondary.style.width = vuMeterBarPrimary.style.width
                             vuMeterBarPrimary.style.width = level * 100 + "%"
+
+                            const user = this.users[this.myUserID]
+                            user.isTalking = level > 0.5
+                            if (!user.isTalking)
+                                this.isRedrawRequired = true
                         }
                         catch (exc)
                         {

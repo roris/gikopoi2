@@ -2,6 +2,7 @@ import { calculateRealCoordinates, BLOCK_HEIGHT, BLOCK_WIDTH } from "./utils.js"
 import { RenderCache } from "./rendercache.js";
 
 const STEP_LENGTH = 8;
+const SPEECH_SPEED = 10;
 
 export default class User
 {
@@ -18,9 +19,11 @@ export default class User
         this.isMoved = true;
         this.direction = "up";
         this.framesUntilNextStep = STEP_LENGTH;
+        this.framesUntilNextMouthMovement = SPEECH_SPEED;
         this.isInactive = false;
-        
+
         this.nameImage = null;
+        this.isTalking = false;
     }
 
     moveImmediatelyToPosition(room, logicalPositionX, logicalPositionY, direction)
@@ -46,14 +49,14 @@ export default class User
         this.direction = direction;
         this.isMoved = true;
     }
-    
+
     calculatePhysicalPosition(room)
     {
         if (!this.isWalking)
             return
-            
-        const walkingSpeedX = BLOCK_WIDTH / ( this.character.characterName == "shar_naito" ? 20 : 40)
-        const walkingSpeedY = BLOCK_HEIGHT / ( this.character.characterName == "shar_naito" ? 20 : 40)
+
+        const walkingSpeedX = BLOCK_WIDTH / (this.character.characterName == "shar_naito" ? 20 : 40)
+        const walkingSpeedY = BLOCK_HEIGHT / (this.character.characterName == "shar_naito" ? 20 : 40)
 
         const realTargetCoordinates = calculateRealCoordinates(room, this.logicalPositionX, this.logicalPositionY);
 
@@ -93,6 +96,7 @@ export default class User
         }
         else
         {
+            const speechCycle = this.framesUntilNextMouthMovement < SPEECH_SPEED / 2
             const isSitting = !!room.sit.find(s => s.x == this.logicalPositionX && s.y == this.logicalPositionY)
 
             switch (this.direction)
@@ -102,16 +106,27 @@ export default class User
                 case "left":
                     return isSitting ? this.character.backSittingFlippedImage : this.character.backStandingFlippedImage;
                 case "down":
-                    return isSitting ? this.character.frontSittingFlippedImage : this.character.frontStandingFlippedImage;
+                    if (speechCycle && this.isTalking)
+                        return isSitting ? this.character.frontSittingFlippedImage : this.character.frontStandingAlternateMouthFlippedImage;
+                    else
+                        return isSitting ? this.character.frontSittingFlippedImage : this.character.frontStandingFlippedImage;
                 case "right":
-                    return isSitting ? this.character.frontSittingImage : this.character.frontStandingImage;
+                    if (speechCycle && this.isTalking)
+                        return isSitting ? this.character.frontSittingImage : this.character.frontStandingAlternateMouthImage;
+                    else
+                        return isSitting ? this.character.frontSittingImage : this.character.frontStandingImage;
             }
         }
     }
-    
+
     checkIfRedrawRequired()
     {
+        this.framesUntilNextMouthMovement--
+        if (this.framesUntilNextMouthMovement < 0)
+            this.framesUntilNextMouthMovement = SPEECH_SPEED
+
         if (this.isWalking) return true;
+        if (this.isTalking) return true;
         if (this.isMoved)
         {
             this.isMoved = false;
