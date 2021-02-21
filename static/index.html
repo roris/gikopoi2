@@ -93,56 +93,52 @@
                         tabindex="-1"></button>
                 </div>
             </div>
-            <div id="toolbar">
-                <div id="toolbar-text-input">
-                    {{ $t("ui.label_input") }} <textarea id="input-textbox"
-                        v-on:keypress="handleMessageInputKeydown($event)" tabindex="2" maxlength="500"></textarea>
-                    <button id="send-button" v-on:click="sendMessageToServer" tabindex="3">{{ $t("ui.button_send") }}</button>
+            <div id="toolbar-text-input">
+                {{ $t("ui.label_input") }} <textarea id="input-textbox"
+                    v-on:keypress="handleMessageInputKeydown($event)" tabindex="2" maxlength="500"></textarea>
+                <button id="send-button" v-on:click="sendMessageToServer" tabindex="3">{{ $t("ui.button_send") }}</button>
+            </div>
+            <div id="toolbar-buttons">
+                <div class="tooltip-section">
+                    <label for="sound-effect-volume">{{ $t("ui.sound_effect") }}</label>
+                    <input type="range" id="sound-effect-volume" v-on:change="changeSoundEffectVolume()"
+                        name="sound-effect-volume" min="0" max="1" step="0.01" :value="soundEffectVolume">
                 </div>
-                <div id="toolbar-buttons">
-                    <div class="tooltip-section">
-                        <label for="sound-effect-volume">{{ $t("ui.sound_effect") }}</label>
-                        <input type="range" id="sound-effect-volume" v-on:change="changeSoundEffectVolume()"
-                            name="sound-effect-volume" min="0" max="1" step="0.01" :value="soundEffectVolume">
+                <div class="tooltip-section">
+                    <button id="btn-rula" v-on:click="requestRoomList()">{{ $t("ui.button_rula") }}</button>
+                    <button id="btn-toggle-username-bg" v-on:click="toggleUsernameBackground()" v-bind:class="{'checked': showUsernameBackground}">{{ $t("ui.user_name_bg") }}</button>
+                    <button v-on:click="toggleCrispMode" v-bind:class="{'checked': svgMode == 'crisp'}">{{ $t("ui.button_crisp") }}</button>
+                </div>
+                <div class="tooltip-section">
+                    <div class='tooltip-section-title'>
+                        <div>{{ $t("ui.label_move") }}</div>
                     </div>
-                    <div class="tooltip-section">
-                        <button id="btn-rula" v-on:click="requestRoomList()">{{ $t("ui.button_rula") }}</button>
-                        <button id="btn-toggle-username-bg" v-on:click="toggleUsernameBackground()" v-bind:class="{'checked': showUsernameBackground}">{{ $t("ui.user_name_bg") }}</button>
-                        <button v-on:click="toggleCrispMode" v-bind:class="{'checked': svgMode == 'crisp'}">{{ $t("ui.button_crisp") }}</button>
+                    <div>
+                        <button id="btn-move-left" class="grid-button" v-on:click="sendNewPositionToServer('left')">↖</button
+                        ><button id="btn-move-up" class="grid-button" v-on:click="sendNewPositionToServer('up')">↗</button>
                     </div>
-                    <div class="tooltip-section">
-                        <div class='tooltip-section-title'>
-                            <div>{{ $t("ui.label_move") }}</div>
-                        </div>
-                        <div>
-                            <button id="btn-move-left" class="grid-button" v-on:click="sendNewPositionToServer('left')">↖</button
-                            ><button id="btn-move-up" class="grid-button" v-on:click="sendNewPositionToServer('up')">↗</button>
-                        </div>
-                        <div>
-                            <button id="btn-move-down" class="grid-button" v-on:click="sendNewPositionToServer('down')">↙</button
-                            ><button id="btn-move-right" class="grid-button" v-on:click="sendNewPositionToServer('right')">↘</button>
-                        </div>
+                    <div>
+                        <button id="btn-move-down" class="grid-button" v-on:click="sendNewPositionToServer('down')">↙</button
+                        ><button id="btn-move-right" class="grid-button" v-on:click="sendNewPositionToServer('right')">↘</button>
                     </div>
-                    <div class="tooltip-section">
-                        <div class='tooltip-section-title'>
-                            <div>{{ $t("ui.label_bubble") }}</div>
-                        </div>
-                        <div>
-                            <button class="grid-button" v-on:click="sendNewBubblePositionToServer('left')">↖</button
-                            ><button class="grid-button" v-on:click="sendNewBubblePositionToServer('up')">↗</button>
-                        </div>
-                        <div>
-                            <button class="grid-button" v-on:click="sendNewBubblePositionToServer('down')">↙</button
-                            ><button class="grid-button" v-on:click="sendNewBubblePositionToServer('right')">↘</button>
-                        </div>
+                </div>
+                <div class="tooltip-section">
+                    <div class='tooltip-section-title'>
+                        <div>{{ $t("ui.label_bubble") }}</div>
+                    </div>
+                    <div>
+                        <button class="grid-button" v-on:click="sendNewBubblePositionToServer('left')">↖</button
+                        ><button class="grid-button" v-on:click="sendNewBubblePositionToServer('up')">↗</button>
+                    </div>
+                    <div>
+                        <button class="grid-button" v-on:click="sendNewBubblePositionToServer('down')">↙</button
+                        ><button class="grid-button" v-on:click="sendNewBubblePositionToServer('right')">↘</button>
                     </div>
                 </div>
             </div>
             {{ $t("ui.label_log") }}
             <div id="chatLog">
             </div>
-
-
             <div id="video-streams" v-if="streams.length > 0">
                 <div v-for="(streamSlot, index) in streams" v-bind:class="{'stream-is-active': streamSlot.isActive}">
                     <hr v-if="index != 0" />

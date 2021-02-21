@@ -223,29 +223,9 @@ video {
     height: 100%;
 }
 
-#room-canvas
-{
-    position: absolute;
-    width: 100%;
-    height: 100%;
-}
-
-#canvas-container
-{
-    position: relative;
-    max-width: 700px;
-    height: 511px;
-}
-
-#toolbar
-{
-    display: flex;
-    align-items: stretch;
-    flex-wrap: wrap;
-}
-
 #login-page button,
-#toolbar button,
+#toolbar-text-input button,
+#toolbar-buttons button,
 #video-streams button,
 .popup button
 {
